@@ -684,6 +684,21 @@
 
 
 ;; 22
+(define (sq x) (* x x))
+(define (divides? a b) (= (mod b a) 0))
+
+(define (find-divisor n test-divisor)
+  (cond ((> (sq test-divisor) n) n)
+        ((divides? test-divisor n) test-divisor)
+        (else (find-divisor n (+ test-divisor 1)))))
+
+(define (smallest-divisor n)
+  (find-divisor n 2))
+
+(define (prime? n)
+  (= (smallest-divisor n) n))
+
+
 (define milliseconds-in-a-year 31556952000)
 (define milliseconds-in-a-month 2629746000)
 (define milliseconds-in-a-day 86400000)
@@ -702,23 +717,6 @@
 
 (define (date-diff-in-ms from-date to-date)
   (- (date->ms to-date) (date->ms from-date)))
-
-
-(define (sq x) (* x x))
-(define (divides? a b) (= (mod b a) 0))
-
-(define (find-divisor n test-divisor)
-  (cond ((> (sq test-divisor) n) n)
-        ((divides? test-divisor n) test-divisor)
-        (else (find-divisor n (+ test-divisor 1)))))
-
-(define (smallest-divisor n)
-  (find-divisor n 2))
-
-
-(define (prime? n)
-  (= (smallest-divisor n) n))
-
 
 (define (report-prime elapsed-time)
   (display " *** ")
@@ -754,3 +752,1167 @@
 
 
 ;; 23
+(define (sq x) (* x x))
+(define (divides? a b) (= (mod b a) 0))
+
+(define (find-divisor n test-divisor)
+  (define (next-odd n)
+    (if (even? n)
+        (+ n 1)
+        (+ n 2)))
+  (cond ((> (sq test-divisor) n) n)
+        ((divides? test-divisor n) test-divisor)
+        (else (find-divisor n (next-odd test-divisor)))))
+
+(define (smallest-divisor n)
+  (find-divisor n 2))
+
+;    1009 *** 1
+;    1013 *** 0
+;    1019 *** 1
+;   10007 *** 3
+;   10009 *** 2
+;   10037 *** 2
+;  100003 *** 6
+;  100019 *** 6
+;  100043 *** 6
+; 1000003 *** 20
+; 1000033 *** 20
+; 1000037 *** 21
+
+
+;; 24
+(define (sq x) (* x x))
+(define (even? n) (= (mod n 2) 0))
+
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp) (mod (sq (expmod base (/ exp 2) m)) m))
+        (else (mod (* base (expmod base (- exp 1) m)) m))))
+
+(define (fermat-test n)
+  (define (try-it a)
+    (= (expmod a n n) a))
+  (try-it (+ 1 (random-integer (- n 1)))))
+
+(define (fast-prime? n times)
+  (cond ((= times 0) #t)
+        ((fermat-test n) (fast-prime? n (- times 1)))
+        (else #f)))
+
+
+(define milliseconds-in-a-year 31556952000)
+(define milliseconds-in-a-month 2629746000)
+(define milliseconds-in-a-day 86400000)
+(define milliseconds-in-an-hour 3600000)
+(define milliseconds-in-a-minute 60000)
+(define milliseconds-in-a-second 1000)
+
+(define (date->ms date)
+  (+ (* milliseconds-in-a-year (date-year date))
+     (* milliseconds-in-a-month (date-month date))
+     (* milliseconds-in-a-day (date-day date))
+     (* milliseconds-in-an-hour (date-hour date))
+     (* milliseconds-in-a-minute (date-minute date))
+     (* milliseconds-in-a-second (date-second date))
+     (date-millisecond date)))
+
+(define (date-diff-in-ms from-date to-date)
+  (- (date->ms to-date) (date->ms from-date)))
+
+(define (report-prime elapsed-time)
+  (display " *** ")
+  (display elapsed-time))
+
+(define (start-prime-test n start-date)
+  (if (fast-prime? n 1)
+      (report-prime (date-diff-in-ms start-date (current-date)))))
+
+(define (timed-prime-test n)
+  (newline)
+  (display n)
+  (start-prime-test n (current-date)))
+
+(define (search-for-primes from to)
+  (cond ((even? from) (search-for-primes (+ from 1) to))
+        ((< from to) (timed-prime-test from)
+        (search-for-primes (+ from 1) to))))
+
+; times = 1
+;    1009 *** 0
+;    1013 *** 1
+;    1019 *** 0
+; 1000003 *** 1
+; 1000033 *** 1
+; 1000037 *** 1
+
+; times = 10
+;    1009 *** 5
+;    1013 *** 6
+;    1019 *** 6
+; 1000003 *** 9
+; 1000033 *** 9
+; 1000037 *** 10
+
+; times = 100
+;    1009 *** 57
+;    1013 *** 59
+;    1019 *** 64
+; 1000003 *** 92
+; 1000033 *** 88
+; 1000037 *** 92
+
+
+;; 25
+(define (even? n) (= (mod n 2) 0))
+(define (sq x) (* x x))
+
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp) (mod (sq (expmod base (/ exp 2) m)) m))
+        (else (mod (* base (expmod base (- exp 1) m)) m))))
+
+(define (fast-exp b n)
+  (cond ((= n 0) 1)
+        ((even? n) (sq (fast-exp b (/ n 2))))
+        (else (* b (fast-exp b (- n 1))))))
+
+(define (fast-expmod base exp m)
+  (mod (fast-exp base exp) m))
+
+(expmod 2 17 17)
+(mod (* 2 (expmod 2 16 17)) 17)
+(mod (* 2 (mod (sq (expmod 2 8 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (expmod 2 4 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (expmod 2 2 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (expmod 2 1 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (* 2 (expmod 2 0 17)) 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (* 2 1) 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod 4 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq 16) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod 256 17)) 17)) 17)
+(mod (* 2 (mod (sq 1) 17)) 17)
+(mod (* 2 (mod 1 17)) 17)
+(mod (* 2 1) 17)
+(mod 2 17)
+2
+
+(fast-expmod 2 17 17)
+(mod (fast-exp 2 17) 17)
+(mod (* 2 (fast-exp 2 16)) 17)
+(mod (* 2 (sq (fast-exp 2 8))) 17)
+(mod (* 2 (sq (sq (fast-exp 2 4)))) 17)
+(mod (* 2 (sq (sq (sq (fast-exp 2 2))))) 17)
+(mod (* 2 (sq (sq (sq (sq (fast-exp 2 1)))))) 17)
+(mod (* 2 (sq (sq (sq (sq (* 2 (fast-exp 2 0))))))) 17)
+(mod (* 2 (sq (sq (sq (sq (* 2 1)))))) 17)
+(mod (* 2 (sq (sq (sq (sq 2))))) 17)
+(mod (* 2 (sq (sq (sq 4)))) 17)
+(mod (* 2 (sq (sq 16))) 17)
+(mod (* 2 (sq 256)) 17)
+(mod (* 2 65536) 17)
+(mod 131072 17)
+2
+
+(expmod 2 129 129)
+(mod (* 2 (expmod 2 128 129)) 129)
+(mod (* 2 (mod (sq (expmod 2 64 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (expmod 2 32 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (expmod 2 16 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (expmod 2 8 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (expmod 2 4 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (expmod 2 2 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (expmod 2 1 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (* 2 (expmod 2 0 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (* 2 1) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod 2 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq 2) 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod 4 129)) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq 4) 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq (mod 16 129)) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (sq 16) 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod 256 129)) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq 127) 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod 16129 129)) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod (sq 4) 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq (mod 16 129)) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod (sq 16) 129)) 129)) 129)
+(mod (* 2 (mod (sq (mod 256 129)) 129)) 129)
+(mod (* 2 (mod (sq 127) 129)) 129)
+(mod (* 2 (mod 16129 129)) 129)
+(mod (* 2 4) 129)
+(mod 8 129)
+8
+
+(fast-expmod 2 129 129)
+(mod (fast-exp 2 129) 129)
+(mod (* 2 (fast-exp 2 128)) 129)
+(mod (* 2 (sq (fast-exp 2 64))) 129)
+(mod (* 2 (sq (sq (fast-exp 2 32)))) 129)
+(mod (* 2 (sq (sq (sq (fast-exp 2 16))))) 129)
+(mod (* 2 (sq (sq (sq (sq (fast-exp 2 8)))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (fast-exp 2 4))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (sq (fast-exp 2 2)))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (sq (sq (fast-exp 2 1))))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (sq (sq (* 2 (fast-exp 2 0)))))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (sq (sq (* 2 1))))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (sq (sq 2)))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq (sq 4))))))) 129)
+(mod (* 2 (sq (sq (sq (sq (sq 16)))))) 129)
+(mod (* 2 (sq (sq (sq (sq 256))))) 129)
+(mod (* 2 (sq (sq (sq 65536)))) 129)
+(mod (* 2 (sq (sq 4294967296))) 129)
+(mod (* 2 (sq 18446744073709552000)) 129)
+(mod (* 2 3.402823669209385e+38) 129)
+(mod 6.80564733841877e+38 129)
+0
+
+
+;; 26
+(define (even? n) (= (mod n 2) 0))
+(define (sq x) (* x x))
+
+
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp) (mod (sq (expmod base (/ exp 2) m)) m))
+        (else (mod (* base (expmod base (- exp 1) m)) m))))
+
+(expmod 2 17 17)
+(mod (* 2 (expmod 2 16 17)) 17)
+(mod (* 2 (mod (sq (expmod 2 8 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (expmod 2 4 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (expmod 2 2 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (expmod 2 1 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (* 2 (expmod 2 0 17)) 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq (mod (* 2 1) 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (sq 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod (* 2 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq (mod 4 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (sq 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod (* 4 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq (mod 16 17)) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (sq 16) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod (* 16 16) 17)) 17)) 17)
+(mod (* 2 (mod (sq (mod 256 17)) 17)) 17)
+(mod (* 2 (mod (sq 1) 17)) 17)
+(mod (* 2 (mod (* 1 1) 17)) 17)
+(mod (* 2 (mod 1 17)) 17)
+(mod (* 2 1) 17)
+(mod 2 17)
+2
+
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp) (mod (* (expmod base (/ exp 2) m) (expmod base (/ exp 2) m)) m))
+        (else (mod (* base (expmod base (- exp 1) m)) m))))
+
+(expmod 2 17 17)
+(mod (* 2 (expmod 2 16 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (expmod 2 8 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (expmod 2 4 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (expmod 2 2 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod 2 17)) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (mod (* 2 1) 17) 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (mod 2 17) 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* 2 2) 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod 4 17)) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (mod 2 17)) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) 2) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (mod (* 2 1) 17) 2) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* (mod 2 17) 2) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod (* 2 2) 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* (mod 4 17) 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod (* 4 4) 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) (mod 16 17)) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (expmod 2 4 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (expmod 2 2 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod 2 17)) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) 2) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (mod (* 2 1) 17) 2) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* (mod 2 17) 2) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod (* 2 2) 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) (mod 4 17)) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (expmod 2 2 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (expmod 2 1 17) (mod 2 17)) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (expmod 2 1 17) 2) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (mod (* 2 1) 17) 2) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* (mod 2 17) 2) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod (* 2 2) 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* (mod 4 17) 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod (* 4 4) 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* (mod 16 17) 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) (mod (* 16 16) 17)) 17)) 17)
+(mod (* 2 (mod (* (expmod 2 8 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (expmod 2 4 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (expmod 2 2 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod 2 17)) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) 2) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (mod (* 2 1) 17) 2) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* (mod 2 17) 2) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod (* 2 2) 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) (mod 4 17)) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (expmod 2 2 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) (mod 2 17)) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (expmod 2 1 17) 2) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (mod (* 2 1) 17) 2) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* (mod 2 17) 2) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod (* 2 2) 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* (mod 4 17) 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod (* 4 4) 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) (mod 16 17)) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (expmod 2 4 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (expmod 2 2 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) (mod 2 17)) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (expmod 2 1 17) 2) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (mod (* 2 1) 17) 2) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* (mod 2 17) 2) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod (* 2 2) 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) (mod 4 17)) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (expmod 2 2 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (expmod 2 1 17) (expmod 2 1 17)) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (expmod 2 1 17) (mod (* 2 (expmod 2 0 17)) 17)) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (expmod 2 1 17) (mod (* 2 1) 17)) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (expmod 2 1 17) (mod 2 17)) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (expmod 2 1 17) 2) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (mod (* 2 (expmod 2 0 17)) 17) 2) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (mod (* 2 1) 17) 2) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* (mod 2 17) 2) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod (* 2 2) 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* (mod 4 17) 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod (* 4 4) 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* (mod 16 17) 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod (* 16 16) 17) 1) 17)) 17)
+(mod (* 2 (mod (* (mod 256 17) 1) 17)) 17)
+(mod (* 2 (mod (* 1 1) 17)) 17)
+(mod (* 2 (mod 1 17)) 17)
+(mod (* 2 1) 17)
+(mod 2 17)
+2
+
+
+;; 27
+(define (sq x) (* x x))
+(define (even? n) (= (mod n 2) 0))
+(define (divides? a b) (= (mod b a) 0))
+
+(define (find-divisor n test-divisor)
+  (cond ((> (sq test-divisor) n) n)
+        ((divides? test-divisor n) test-divisor)
+        (else (find-divisor n (+ test-divisor 1)))))
+
+(define (smallest-divisor n)
+  (find-divisor n 2))
+
+(define (prime? n)
+  (= (smallest-divisor n) n))
+
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp) (mod (sq (expmod base (/ exp 2) m)) m))
+        (else (mod (* base (expmod base (- exp 1) m)) m))))
+
+(define (fools-fermat-test? n)
+  (define (congruent-mod-n? a) (= (expmod a n n) a))
+  (define (iterate x)
+    (cond ((= x 0) #t)
+          ((congruent-mod-n? x) (iterate (- x 1)))
+          (else #f)))
+  (and (iterate (- n 1)) (not (prime? n))))
+
+(fools-fermat-test?  561) ; => #t
+(fools-fermat-test? 1105) ; => #t
+(fools-fermat-test? 1729) ; => #t
+(fools-fermat-test? 2465) ; => #t
+(fools-fermat-test? 2821) ; => #t
+(fools-fermat-test? 6601) ; => #t
+
+
+;; 28 ;; TODO
+(define (sq x) (* x x))
+(define (even? n) (= (mod n 2) 0))
+
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp) (mod (sq (expmod base (/ exp 2) m)) m))
+        (else (mod (* base (expmod base (- exp 1) m)) m))))
+
+(define (fermat-test n)
+  (define (try a) (= (expmod a n n) a))
+  (try (+ 1 (random-integer (- n 1)))))
+
+(define (miller-rabin-test n)
+  (define (try a) (= (expmod a (- n 1) n) a))
+  (try (+ 1 (random-integer (- n 1)))))
+...
+
+
+;; 29
+(define (inc n) (+ n 1))
+(define (even? n) (= (mod n 2) 0))
+
+(define (sum term a next b)
+  (if (> a b)
+      0
+      (+ (term a)
+         (sum term (next a) next b))))
+
+(define (simpsons-rule f a b n)
+  (define h (/ (- b a) n))
+  (define (y k) (f (+ a (* k h))))
+  (define (term k) (cond ((or (= k 0) (= k n)) (y k))
+                         ((even? k) (* 2 (y k)))
+                         (else (* 4 (y k)))))
+  (* (/ h 3) (sum term 0 inc n)))
+
+(define (integral f a b n)
+  (simpsons-rule f a b n))
+
+(define (cube x) (* x x x))
+
+(integral cube 0 1 100) ; => 0.24999999999999992
+(integral cube 0 1 1000) ; => 0.2500000000000003
+
+
+;; 30
+(define (identity x) x)
+(define (inc x) (+ x 1))
+
+(define (sum term a next b)
+  (define (iterate a result)
+    (if (> a b)
+        result
+        (iterate (next a) (+ result (term a)))))
+  (iterate a 0))
+
+(define (sum-ints from to)
+  (sum identity from inc to))
+
+
+;; 31
+
+;; a
+(define (identity x) x)
+(define (inc x) (+ x 1))
+
+(define (product term from next to)
+  (if (> from to)
+      1
+      (* (term from) (product term (next from) next to))))
+
+(define (factorial n)
+  (product identity 1 inc n))
+
+(factorial 0) ; => 1
+(factorial 1) ; => 1
+(factorial 2) ; => 2
+(factorial 3) ; => 6
+(factorial 4) ; => 24
+(factorial 5) ; => 120
+
+(define (pi-over-4 n)
+  (define (term k)
+    (if (even? k)
+        (/ (+ 2 k) (+ 3 k))
+        (/ (+ 3 k) (+ 2 k))))
+  (product term 0 inc n))
+
+(* 4 (pi-over-4 100)) ; => 3.1263793980429804
+(* 4 (pi-over-4 1000)) ; => 3.1400269461050057
+(* 4 (pi-over-4 10000)) ; => 3.1414356249916424
+
+;; b
+(define (product term from next to)
+  (define (iterate result x)
+    (if (> x to)
+        result
+        (iterate (* result (term x)) (next x))))
+  (iterate 1 from))
+
+
+;; 32
+
+;; a
+(define (identity x) x)
+(define (inc x) (+ x 1))
+
+(define (accumulate combiner null-value term from next to)
+  (if (> from to)
+      null-value
+      (combiner (term from)
+                (accumulate combiner null-value term (next from) next to))))
+
+
+(define (sum term from next to)
+  (accumulate + 0 term from next to))
+
+(define (sum-ints from to)
+  (sum identity from inc to))
+
+(sum-ints 1 5)
+(sum identity 1 inc 5)
+(accumulate + 0 identity 1 inc 5)
+(+ 1 (accumulate + 0 identity 2 inc 5))
+(+ 1 (+ 2 (accumulate + 0 identity 3 inc 5)))
+(+ 1 (+ 2 (+ 3 (accumulate + 0 identity 4 inc 5))))
+(+ 1 (+ 2 (+ 3 (+ 4 (accumulate + 0 identity 5 inc 5)))))
+(+ 1 (+ 2 (+ 3 (+ 4 (+ 5 (accumulate + 0 identity 6 inc 5))))))
+(+ 1 (+ 2 (+ 3 (+ 4 (+ 5 0)))))
+(+ 1 (+ 2 (+ 3 (+ 4 5))))
+(+ 1 (+ 2 (+ 3 9)))
+(+ 1 (+ 2 12))
+(+ 1 14)
+15
+
+(define (product term from next to)
+  (accumulate * 1 term from next to))
+
+(define (product-ints from to)
+  (product identity from inc to))
+
+(product-ints 1 5)
+(product identity 1 inc 5)
+(accumulate * 1 identity 1 inc 5)
+(* 1 (accumulate * 1 identity 2 inc 5))
+(* 1 (* 2 (accumulate * 1 identity 3 inc 5)))
+(* 1 (* 2 (* 3 (accumulate * 1 identity 4 inc 5))))
+(* 1 (* 2 (* 3 (* 4 (accumulate * 1 identity 5 inc 5)))))
+(* 1 (* 2 (* 3 (* 4 (* 5 (accumulate * 1 identity 6 inc 5))))))
+(* 1 (* 2 (* 3 (* 4 (* 5 1)))))
+(* 1 (* 2 (* 3 (* 4 5))))
+(* 1 (* 2 (* 3 20)))
+(* 1 (* 2 60))
+(* 1 120)
+120
+
+;; b
+(define (accumulate combiner null-value term from next to)
+  (define (iterate result x)
+    (if (> x to)
+        result
+        (iterate (combiner result (term x)) (next x))))
+  (iterate null-value from))
+
+
+;; 33
+(define (filtered-accumulate pred? op zero term from next to)
+  (cond ((> from to) zero)
+        ((pred? from) (op (term from)
+                          (filtered-accumulate pred? op zero term (next from) next to)))
+        (else (filtered-accumulate pred? op zero term (next from) next to))))
+
+;; a
+(define (identity x) x)
+(define (inc x) (+ x 1))
+(define (sq x) (* x x))
+(define (even? n) (= (mod n 2) 0))
+(define (divides? a b) (= (mod b a) 0))
+
+(define (find-divisor n test-divisor)
+  (cond ((> (sq test-divisor) n) n)
+        ((divides? test-divisor n) test-divisor)
+        (else (find-divisor n (+ test-divisor 1)))))
+
+(define (smallest-divisor n)
+  (find-divisor n 2))
+
+(define (prime? n)
+  (= (smallest-divisor n) n))
+
+(define (sum-of-squares-of-primes from to)
+  (filtered-accumulate prime? + 0 sq from inc to))
+
+(sum-of-squares-of-primes 1 10)
+(filtered-accumulate prime? + 0 sq 1 inc 10)
+(+ (sq 1) (filtered-accumulate prime? + 0 sq 2 inc 10))
+(+ (sq 1) (+ (sq 2) (filtered-accumulate prime? + 0 sq 3 inc 10)))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (filtered-accumulate prime? + 0 sq 4 inc 10))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (filtered-accumulate prime? + 0 sq 5 inc 10))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (filtered-accumulate prime? + 0 sq 6 inc 10)))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (filtered-accumulate prime? + 0 sq 7 inc 10)))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (+ (sq 7) (filtered-accumulate prime? + 0 sq 8 inc 10))))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (+ (sq 7) (filtered-accumulate prime? + 0 sq 9 inc 10))))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (+ (sq 7) (filtered-accumulate prime? + 0 sq 10 inc 10))))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (+ (sq 7) (filtered-accumulate prime? + 0 sq 11 inc 10))))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (+ (sq 7) 0)))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) (+ 49 0)))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ (sq 5) 49))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) (+ 25 49))))
+(+ (sq 1) (+ (sq 2) (+ (sq 3) 74)))
+(+ (sq 1) (+ (sq 2) (+ 9 74)))
+(+ (sq 1) (+ (sq 2) 83))
+(+ (sq 1) (+ 4 83))
+(+ (sq 1) 87)
+(+ 1 87)
+88
+
+;; b
+(define (gcd a b)
+  (if (= b 0)
+      a
+      (gcd b (mod a b))))
+
+(define (relatively-prime? a b)
+  (= (gcd a b) 1))
+
+(relatively-prime? 10 1) ; => #t
+(relatively-prime? 10 3) ; => #t
+(relatively-prime? 10 7) ; => #t
+(relatively-prime? 10 9) ; => #t
+
+(define (product-of-relatively-prime-ints-up-to n)
+  (define (relatively-prime-to-n? x) (= (gcd n x) 1))
+  (filtered-accumulate relatively-prime-to-n? * 1 identity 1 inc n))
+
+(product-of-relatively-prime-ints-up-to 10)
+(filtered-accumulate relatively-prime-to-10? * 1 identity 1 inc 10)
+(* 1 (filtered-accumulate relatively-prime-to-10? * 1 identity 2 inc 10))
+(* 1 (filtered-accumulate relatively-prime-to-10? * 1 identity 3 inc 10))
+(* 1 (* 3 (filtered-accumulate relatively-prime-to-10? * 1 identity 4 inc 10)))
+(* 1 (* 3 (filtered-accumulate relatively-prime-to-10? * 1 identity 5 inc 10)))
+(* 1 (* 3 (filtered-accumulate relatively-prime-to-10? * 1 identity 6 inc 10)))
+(* 1 (* 3 (filtered-accumulate relatively-prime-to-10? * 1 identity 7 inc 10)))
+(* 1 (* 3 (* 7 (filtered-accumulate relatively-prime-to-10? * 1 identity 8 inc 10))))
+(* 1 (* 3 (* 7 (filtered-accumulate relatively-prime-to-10? * 1 identity 9 inc 10))))
+(* 1 (* 3 (* 7 (* 9 (filtered-accumulate relatively-prime-to-10? * 1 identity 10 inc 10)))))
+(* 1 (* 3 (* 7 (* 9 (filtered-accumulate relatively-prime-to-10? * 1 identity 11 inc 10)))))
+(* 1 (* 3 (* 7 (* 9 1))))
+(* 1 (* 3 (* 7 9)))
+(* 1 (* 3 63))
+(* 1 189)
+189
+
+
+;; 34
+(define (square x) (* x x))
+(define (f g) (g 2))
+
+(f square)
+(square 2)
+(* 2 2)
+4
+
+(f (lambda (z) (* z (+ z 1))))
+((lambda (z) (* z (+ z 1))) 2)
+(* 2 (+ 2 1))
+(* 2 3)
+6
+
+(f f)
+(f 2)
+(2 2) ; ~> 2 is not a function
+
+
+;; 35
+(define tolerance 0.00001)
+
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2) (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (if (close-enough? guess next)
+          next
+          (try next))))
+  (try first-guess))
+
+; phi ^ 2 = phi + 1
+(fixed-point (lambda (phi) (+ 1 (/ 1 phi))) 1.0)
+
+
+;; 36
+(define tolerance 0.00001)
+
+(define (fixed-point-print f first-guess)
+  (define (close-enough? v1 v2) (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (display next)
+      (newline)
+      (if (close-enough? guess next)
+          next
+          (try next))))
+  (try first-guess))
+
+(define (average x y) (/ (+ x y) 2))
+
+(fixed-point-print (lambda (x) (/ (log 1000) (log x))) 2.0) ; => 4.555532270803653
+(fixed-point-print (lambda (x) (average x (/ (log 1000) (log x)))) 2.0) ; => 4.555537551999825
+; w/o avg. damping     w/ avg. damping
+; 9.965784284662087    5.9828921423310435
+; 3.004472209841214    4.922168721308343
+; 6.279195757507157    4.628224318195455
+; 3.759850702401539    4.568346513136242
+; 5.215843784925895    4.5577305909237005
+; 4.182207192401397    4.555909809045131
+; 4.8277650983445906   4.555599411610624
+; 4.387593384662677    4.5555465521473675
+; 4.671250085763899    4.555537551999825
+; 4.481403616895052
+; 4.6053657460929
+; 4.5230849678718865
+; 4.577114682047341
+; 4.541382480151454
+; 4.564903245230833
+; 4.549372679303342
+; 4.559606491913287
+; 4.552853875788271
+; 4.557305529748263
+; 4.554369064436181
+; 4.556305311532999
+; 4.555028263573554
+; 4.555870396702851
+; 4.555315001192079
+; 4.5556812635433275
+; 4.555439715736846
+; 4.555599009998291
+; 4.555493957531389
+; 4.555563237292884
+; 4.555517548417651
+; 4.555547679306398
+; 4.555527808516254
+; 4.555540912917957
+; 4.555532270803653
+
+
+;; 37
+
+;; a
+(define (cont-frac n d k)
+  (define (step i)
+    (if (> i k)
+        0
+        (/ (n i) (+ (d i) (step (+ i 1))))))
+  (step 1))
+
+(/ 1 (cont-frac (lambda (i) 1) (lambda (i) 1) 10)) ; => 1.6181818181818184
+(/ 1 (cont-frac (lambda (i) 1) (lambda (i) 1) 11)) ; => 1.6179775280898876
+(/ 1 (cont-frac (lambda (i) 1) (lambda (i) 1) 12)) ; => 1.6180555555555558
+
+(/ 1 (cont-frac (lambda (i) 1) (lambda (i) 1) 12)) ; n = \ _ -> 1, d = \ _ -> 1, k = 12
+(/ 1 (step 1))
+(/ 1 (/ 1 (+ 1 (step 2))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 3))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 4))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 5))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 6))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 7))))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 8))))))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 9))))))))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 10))))))))))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 11))))))))))))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 12))))))))))))))))))))))))
+(/ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (/ 1 (+ 1 (step 13))))))))))))))))))))))))))
+
+;; b
+(define (cont-frac n d k)
+  (define (step result i)
+    (if (= i 0)
+        result
+        (step (/ (n i) (+ (d i) result)) (- i 1))))
+  (step 0 k))
+
+
+;; 38
+(define (cont-frac n d k)
+  (define (step result i)
+    (if (= i 0)
+        result
+        (step (/ (n i) (+ (d i) result)) (- i 1))))
+  (step 0 k))
+
+(define (approx-e k)
+  (+ 2 (cont-frac (lambda (i) 1)
+                  (lambda (i) (if (= (mod i 3) 2)
+                                  (- i (div i 3))
+                                  1))
+                  k)))
+
+;                ~ 2.718281828459045...
+(approx-e  1) ; => 3
+(approx-e  2) ; => 2.6666666666666665
+(approx-e  3) ; => 2.75
+(approx-e  4) ; => 2.7142857142857144
+(approx-e  5) ; => 2.71875
+(approx-e  6) ; => 2.717948717948718
+(approx-e  7) ; => 2.7183098591549295
+(approx-e  8) ; => 2.718279569892473
+(approx-e  9) ; => 2.718283582089552
+(approx-e 10) ; => 2.7182817182817183
+(approx-e 11) ; => 2.7182818352059925
+(approx-e 12) ; => 2.7182818229439496
+(approx-e 13) ; => 2.718281828735696
+
+
+;; 39
+(define (sq x) (* x x))
+
+(define (cont-frac n d k)
+  (define (step result i)
+    (if (= i 0)
+        result
+        (step (/ (n i) (+ (d i) result)) (- i 1))))
+  (step 0 k))
+
+(define (tan-cf x k)
+  (cont-frac (lambda (i) (if (= i 1) x (- (sq x))))
+             (lambda (i) (- (* 2 i) 1))
+             k))
+
+(define pi 3.14159265359)
+(tan-cf (/ pi 4)  1) ; => 0.7853981633975
+(tan-cf (/ pi 4)  2) ; => 0.9886892399343039
+(tan-cf (/ pi 4)  3) ; => 0.9997876809150718
+(tan-cf (/ pi 4)  4) ; => 0.9999978684157983
+(tan-cf (/ pi 4)  5) ; => 0.9999999865264585
+(tan-cf (/ pi 4)  6) ; => 0.9999999999414289
+(tan-cf (/ pi 4)  7) ; => 0.9999999999999166
+(tan-cf (/ pi 4)  8) ; => 1.0000000000001028
+(tan-cf (/ pi 4)  9) ; => 1.0000000000001035
+(tan-cf (/ pi 4) 10) ; => 1.0000000000001035
+
+
+;; 40
+(define (fixed-point f first-guess)
+  (let ((tolerance 0.00001))
+    (define (close-enough? v1 v2) (< (abs (- v1 v2)) tolerance))
+    (define (try guess)
+      (let ((next (f guess)))
+        (if (close-enough? guess next)
+            next
+            (try next))))
+    (try first-guess)))
+
+(define (deriv g)
+  (let ((dx 0.00001))
+    (lambda (x) (/ (- (g (+ x dx)) (g x)) dx))))
+
+(define (newton-transform g)
+  (lambda (x)
+    (- x (/ (g x) ((deriv g) x)))))
+
+(define (newtons-method g guess)
+  (fixed-point (newton-transform g) guess))
+
+(define (cubic a b c)
+  (lambda (x) (+ (* x x x) (* a x x) (* b x) c)))
+
+(newtons-method (cubic 0 0 0) 1) ; => 0.000026531990291797187
+(newtons-method (cubic 1 2 3) 1) ; => -1.2756822036498454
+
+
+;; 41
+(define (inc x) (+ x 1))
+
+(define (double f) (lambda (x) (f (f x))))
+
+((double inc) 1) ; => 3
+(((double (double double)) inc) 5) ; => 21
+
+
+;; 42
+(define (inc x) (+ x 1))
+(define (sq x) (* x x))
+
+(define (compose f g) (lambda (x) (f (g x))))
+
+((compose sq inc) 6) ; => 49
+
+
+;; 43
+(define (inc x) (+ x 1))
+(define (sq x) (* x x))
+
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+(define (repeated f n)
+  (if (= n 1)
+      f
+      (compose f (repeated f (- n 1)))))
+
+((repeated sq 2) 5) ; => 625
+
+
+;; 44
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+(define (repeated f n)
+  (if (= n 1)
+      f
+      (compose f (repeated f (- n 1)))))
+
+(define (smooth f)
+  (define (avg a b c)
+    (/ (+ a b c) 3))
+  (let ((dx 0.00001))
+    (lambda (x)
+      (avg (f (- x dx))
+           (f x)
+           (f (+ x dx))))))
+
+(define (n-fold-smoothed f n)
+  (repeated (smooth f) n))
+
+
+;; 45
+(define (fixed-point f first-guess)
+  (let ((tolerance 0.00001))
+    (define (close-enough? v1 v2) (< (abs (- v1 v2)) tolerance))
+    (define (try guess)
+      (let ((next (f guess)))
+        ;(display next)
+        ;(newline)
+        (if (close-enough? guess next)
+            next
+            (try next))))
+    (try first-guess)))
+
+(define (average a b) (/ (+ a b) 2))
+
+(define (average-damp f)
+  (lambda (x) (average x (f x))))
+
+(define (identity x) x)
+
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+(define (repeated f n)
+  (if (= n 0)
+      identity
+      (compose f (repeated f (- n 1)))))
+
+(define (sq x) (* x x))
+
+(define (exp x n)
+  (cond ((= n 0) 1)
+        ((even? n) (sq (exp x (/ n 2))))
+        (else (* x (exp x (- n 1))))))
+
+
+(define (2nd-root x)
+  (fixed-point ((repeated average-damp 1) (lambda (y) (/ x (exp y 1))))
+               1.0))
+
+(define (3rd-root x)
+  (fixed-point ((repeated average-damp 1) (lambda (y) (/ x (exp y 2))))
+               1.0))
+
+(define (4th-root x)
+  (fixed-point ((repeated average-damp 2) (lambda (y) (/ x (exp y 3))))
+               1.0))
+
+(define (5th-root x)
+  (fixed-point ((repeated average-damp 2) (lambda (y) (/ x (exp y 4))))
+               1.0))
+
+(define (6th-root x)
+  (fixed-point ((repeated average-damp 2) (lambda (y) (/ x (exp y 5))))
+               1.0))
+
+(define (7th-root x)
+  (fixed-point ((repeated average-damp 2) (lambda (y) (/ x (exp y 6))))
+               1.0))
+
+(define (8th-root x)
+  (fixed-point ((repeated average-damp 3) (lambda (y) (/ x (exp y 7))))
+               1.0))
+
+(define (9th-root x)
+  (fixed-point ((repeated average-damp 3) (lambda (y) (/ x (exp y 8))))
+               1.0))
+
+(define (10th-root x)
+  (fixed-point ((repeated average-damp 3) (lambda (y) (/ x (exp y 9))))
+               1.0))
+
+(define (11th-root x)
+  (fixed-point ((repeated average-damp 3) (lambda (y) (/ x (exp y 10))))
+               1.0))
+
+(define (12th-root x)
+  (fixed-point ((repeated average-damp 3) (lambda (y) (/ x (exp y 11))))
+               1.0))
+
+
+(define (explore-average-damp-times-for-nth-root n x times)
+  (fixed-point ((repeated average-damp times) (lambda (y) (/ x (exp y (- n 1)))))
+               1.0))
+
+; (explore-average-damp-times-for-nth-root 1  (exp 2 1)  0) ; => 2
+; (explore-average-damp-times-for-nth-root 2  (exp 2 2)  1) ; => 2.000000000000002
+; (explore-average-damp-times-for-nth-root 3  (exp 2 3)  1) ; => 1.9999981824788517
+; (explore-average-damp-times-for-nth-root 4  (exp 2 4)  2) ; => 2.0000000000021965
+; (explore-average-damp-times-for-nth-root 5  (exp 2 5)  2) ; => 2.000001512995761
+; (explore-average-damp-times-for-nth-root 6  (exp 2 6)  2) ; => 2.0000029334662086
+; (explore-average-damp-times-for-nth-root 7  (exp 2 7)  2) ; => 2.0000035538623377
+; (explore-average-damp-times-for-nth-root 8  (exp 2 8)  3) ; => 2.000000000003967
+; (explore-average-damp-times-for-nth-root 9  (exp 2 9)  3) ; => 1.9999997106840102
+; (explore-average-damp-times-for-nth-root 10 (exp 2 10) 3) ; => 2.0000011830103324
+; (explore-average-damp-times-for-nth-root 11 (exp 2 11) 3) ; => 1.9999976006547362
+; (explore-average-damp-times-for-nth-root 12 (exp 2 12) 3) ; => 1.999997691470309
+; (explore-average-damp-times-for-nth-root 13 (exp 2 13) 3) ; => 2.0000029085658984
+; (explore-average-damp-times-for-nth-root 14 (exp 2 14) 3) ; => 1.9999963265447058
+; (explore-average-damp-times-for-nth-root 15 (exp 2 15) 3) ; => 2.0000040951543023
+; (explore-average-damp-times-for-nth-root 16 (exp 2 16) 4) ; => 2.000000000076957
+; (explore-average-damp-times-for-nth-root 17 (exp 2 17) 4) ; => 2.0000000561635765
+; (explore-average-damp-times-for-nth-root 18 (exp 2 18) 4) ; => 2.0000005848426476
+; (explore-average-damp-times-for-nth-root 19 (exp 2 19) 4) ; => 2.0000003649180282
+; (explore-average-damp-times-for-nth-root 20 (exp 2 20) 4) ; => 1.999999063225966
+; (explore-average-damp-times-for-nth-root 21 (exp 2 21) 4) ; => 2.000001254054255
+; (explore-average-damp-times-for-nth-root 22 (exp 2 22) 4) ; => 1.9999986334227027
+; (explore-average-damp-times-for-nth-root 23 (exp 2 23) 4) ; => 1.999997131591442
+; (explore-average-damp-times-for-nth-root 24 (exp 2 24) 4) ; => 1.999997814692085
+; (explore-average-damp-times-for-nth-root 25 (exp 2 25) 4) ; => 1.9999977429539466
+; (explore-average-damp-times-for-nth-root 26 (exp 2 26) 4) ; => 1.999997554120725
+; (explore-average-damp-times-for-nth-root 27 (exp 2 27) 4) ; => 1.9999966641661142
+; (explore-average-damp-times-for-nth-root 28 (exp 2 28) 4) ; => 1.9999957943905209
+; (explore-average-damp-times-for-nth-root 29 (exp 2 29) 4) ; => 1.9999957104786468
+; (explore-average-damp-times-for-nth-root 30 (exp 2 30) 4) ; => 2.000004490765405
+; (explore-average-damp-times-for-nth-root 31 (exp 2 31) 4) ; => 1.9999951809750396
+; (explore-average-damp-times-for-nth-root 32 (exp 2 32) 5) ; => 2.000000000000006
+;          average-damp-times                          ~ integer part of log base 2 of n
+
+
+(define (nth-root n x)
+  (let ((times (div (log n) (log 2))))
+    (fixed-point ((repeated average-damp times) (lambda (y) (/ x (exp y (- n 1)))))
+                 1.0)))
+
+(nth-root 1  (exp 2 1))  ; => 2
+(nth-root 2  (exp 2 2))  ; => 2.000000000000002
+(nth-root 3  (exp 2 3))  ; => 1.9999981824788517
+(nth-root 4  (exp 2 4))  ; => 2.0000000000021965
+(nth-root 5  (exp 2 5))  ; => 2.000001512995761
+(nth-root 6  (exp 2 6))  ; => 2.0000029334662086
+(nth-root 7  (exp 2 7))  ; => 2.0000035538623377
+(nth-root 8  (exp 2 8))  ; => 2.000000000003967
+(nth-root 9  (exp 2 9))  ; => 1.9999997106840102
+(nth-root 10 (exp 2 10)) ; => 2.0000011830103324
+(nth-root 11 (exp 2 11)) ; => 1.9999976006547362
+(nth-root 12 (exp 2 12)) ; => 1.999997691470309
+(nth-root 13 (exp 2 13)) ; => 2.0000029085658984
+(nth-root 14 (exp 2 14)) ; => 1.9999963265447058
+(nth-root 15 (exp 2 15)) ; => 2.0000040951543023
+(nth-root 16 (exp 2 16)) ; => 2.000000000076957
+(nth-root 17 (exp 2 17)) ; => 2.0000000561635765
+(nth-root 18 (exp 2 18)) ; => 2.0000005848426476
+(nth-root 19 (exp 2 19)) ; => 2.0000003649180282
+(nth-root 20 (exp 2 20)) ; => 1.999999063225966
+(nth-root 21 (exp 2 21)) ; => 2.000001254054255
+(nth-root 22 (exp 2 22)) ; => 1.9999986334227027
+(nth-root 23 (exp 2 23)) ; => 1.999997131591442
+(nth-root 24 (exp 2 24)) ; => 1.999997814692085
+(nth-root 25 (exp 2 25)) ; => 1.9999977429539466
+(nth-root 26 (exp 2 26)) ; => 1.999997554120725
+(nth-root 27 (exp 2 27)) ; => 1.9999966641661142
+(nth-root 28 (exp 2 28)) ; => 1.9999957943905209
+(nth-root 29 (exp 2 29)) ; => 1.9999957104786468
+(nth-root 30 (exp 2 30)) ; => 2.000004490765405
+(nth-root 31 (exp 2 31)) ; => 1.9999951809750396
+(nth-root 32 (exp 2 32)) ; => 2.000000000000006
+
+
+
+; (define (f y) (/ 16 (exp y 3)))
+
+; ((average-damp (average-damp f)) 1.0)                ; => 4.75
+; ((average-damp (average-damp f)) 4.75)               ; => 3.5998232249599065
+; ((average-damp (average-damp f)) 3.5998232249599065) ; => 2.7856139316659103
+; ((average-damp (average-damp f)) 2.7856139316659103) ; => 2.274263910561008
+; ((average-damp (average-damp f)) 2.274263910561008)  ; => 2.045743730517053
+; ((average-damp (average-damp f)) 2.045743730517053)  ; => 2.0015115314098866
+; ((average-damp (average-damp f)) 2.0015115314098866) ; => 2.000001711389449
+; ((average-damp (average-damp f)) 2.000001711389449)  ; => 2.0000000000021965
+
+; (((repeated average-damp 2) f) 1.0)                  ; => 4.75
+; (((repeated average-damp 2) f) 4.75)                 ; => 3.5998232249599065
+; (((repeated average-damp 2) f) 3.5998232249599065)   ; => 2.7856139316659103
+; (((repeated average-damp 2) f) 2.7856139316659103)   ; => 2.274263910561008
+; (((repeated average-damp 2) f) 2.274263910561008)    ; => 2.045743730517053
+; (((repeated average-damp 2) f) 2.045743730517053)    ; => 2.0015115314098866
+; (((repeated average-damp 2) f) 2.0015115314098866)   ; => 2.000001711389449
+; (((repeated average-damp 2) f) 2.000001711389449)    ; => 2.0000000000021965
+
+; ((repeated (average-damp f) 2) 1.0)                  ; => 4.263026663952778
+; ((repeated (average-damp f) 2) 4.263026663952778)    ; => 1.8341723103276433
+; ((repeated (average-damp f) 2) 1.8341723103276433)   ; => 1.844363126744897
+; ((repeated (average-damp f) 2) 1.844363126744897)    ; => 1.8527375467627856
+; ((repeated (average-damp f) 2) 1.8527375467627856)   ; => 1.8597959434977196
+; ((repeated (average-damp f) 2) 1.8597959434977196)   ; => 1.8658611343368858
+; ((repeated (average-damp f) 2) 1.8658611343368858)   ; => 1.8711529512646927
+; ((repeated (average-damp f) 2) 1.8711529512646927)   ; => 1.875827463108303
+; ...
+
+
+;; 46
+(define (average x y) (/ (+ x y) 2))
+(define (square x) (* x x))
+
+(define (iterative-improve good-enough? improve)
+  (define (step guess)
+    (if (good-enough? guess)
+        guess
+        (step (improve guess))))
+  step)
+
+
+(define tolerance 0.00001)
+
+(define (sqrt x)
+  ((iterative-improve (lambda (guess) (< (abs (- (square guess) x)) tolerance))
+                      (lambda (guess) (average guess (/ x guess)))) 1.0))
+
+(sqrt 1) ; => 1
+(sqrt 2) ; => 1.4142156862745097
+(sqrt 3) ; => 1.7320508100147274
+(sqrt 4) ; => 2.0000000929222947
+
+(define (fixed-point f first-guess)
+  ((iterative-improve (lambda (guess) (< (abs (- guess (f guess))) tolerance))
+                      (lambda (guess) (f guess))) first-guess))
+
+((lambda (x) (fixed-point (lambda (y) (average y (/ x y))) 1.0)) 1) ; => 1
+((lambda (x) (fixed-point (lambda (y) (average y (/ x y))) 1.0)) 2) ; => 1.4142156862745097
+((lambda (x) (fixed-point (lambda (y) (average y (/ x y))) 1.0)) 3) ; => 1.7320508100147274
+((lambda (x) (fixed-point (lambda (y) (average y (/ x y))) 1.0)) 4) ; => 2.0000000929222947
+
+
+
+
+
+
+
