@@ -1218,7 +1218,7 @@ y                ; => (((1 2) (3 4)) ((5 6) (7 8)))
 ;                                              sums: (6       7       8       9       8       9       10      10      11      12      9       10      11      ...)
 
 
-;;42
+;; 42
 (define (accumulate op initial sequence)
   (if (null? sequence)
       initial
@@ -1719,7 +1719,17 @@ y                ; => (((1 2) (3 4)) ((5 6) (7 8)))
 ;            |car| |   cdr   |
 
 
-;; 56
+;; 56, 57
+(define (foldr f z xs)
+  (if (null? xs)
+      z
+      (f (car xs) (foldr f z (cdr xs)))))
+
+(define (foldl f z xs)
+  (if (null? xs)
+      z
+      (foldl f (f z (car xs)) (cdr xs))))
+
 (define (=number? x n)
   (and (number? x) (= x n)))
 
@@ -1743,8 +1753,12 @@ y                ; => (((1 2) (3 4)) ((5 6) (7 8)))
 (define (addend s)
   (cadr s))
 
+
 (define (augend s)
-  (caddr s))
+;  (caddr s)
+  (cond ((< (length s) 3) 0)
+        ((= (length s) 3) (caddr s))
+        (else (foldl (lambda (r x) (append r (list x))) '(+) (cddr s)))))
 
 (define (make-product m1 m2)
   (cond ((or (=number? m1 0) (=number? m2 0)) 0)
@@ -1760,7 +1774,10 @@ y                ; => (((1 2) (3 4)) ((5 6) (7 8)))
   (cadr p))
 
 (define (multiplicand p)
-  (caddr p))
+;  (caddr p)
+  (cond ((< (length p) 3) 1)
+        ((= (length p) 3) (caddr p))
+        (else (foldl (lambda (r x) (append r (list x))) '(*) (cddr p)))))
 
 (define (make-exponentiation b e)
   (cond ((=number? e 0) 1)
@@ -1791,5 +1808,888 @@ y                ; => (((1 2) (3 4)) ((5 6) (7 8)))
                                              (deriv (base exp) var)))
         (else (error "unknown expression type -- DERIV" exp))))
 
+(augend '(+ 42)) ; => 0
+(augend '(+ 42 0)) ; => 0
+(augend '(+ 42 0 1)) ; => (+ 0 1)
+(augend '(+ 42 0 1 2)) ; => (+ 0 1 2)
+(augend '(+ 42 0 1 2 3)) ; => (+ 0 1 2 3)
+(augend '(+ 42 0 1 2 3 4)) ; => (+ 0 1 2 3 4)
+
+(multiplicand '(* 42)) ; => 1
+(multiplicand '(* 42 0)) ; => 0
+(multiplicand '(* 42 0 1)) ; => (* 0 1)
+(multiplicand '(* 42 0 1 2)) ; => (* 0 1 2)
+(multiplicand '(* 42 0 1 2 3)) ; => (* 0 1 2 3)
+(multiplicand '(* 42 0 1 2 3 4)) ; => (* 0 1 2 3 4)
+
+(deriv '(+ x 3) 'x) ; => 1
+(deriv '(* x y) 'x) ; => y
+(deriv '(* (* x y) (+ x 3)) 'x) ; => (+ (* x y) (* y (+ x 3)))
+
+(deriv '(* x y (+ x 3)) 'x)     ; => (+ (* x y) (* y (+ x 3)))
 
 
+;; 58
+;; a
+(define (=number? x n)
+  (and (number? x) (= x n)))
+
+(define (variable? v)
+  (symbol? v))
+
+(define (same-variable? v1 v2)
+  (and (variable? v1)
+       (variable? v2)
+       (eq? v1 v2)))
+
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2)
+        ((=number? a2 0) a1)
+        ((and (number? a1) (number? a2)) (+ a1 a2))
+        (else (list a1 '+ a2))))
+
+(define (sum? x)
+  (and (pair? x) (eq? (cadr x) '+)))
+
+(define (addend s)
+  (car s))
+
+(define (augend s)
+  (caddr s))
+
+(define (make-product m1 m2)
+  (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+        ((=number? m1 1) m2)
+        ((=number? m2 1) m1)
+        ((and (number? m1) (number? m2)) (* m1 m2))
+        (else (list m1 '* m2))))
+
+(define (product? x)
+  (and (pair? x) (eq? (cadr x) '*)))
+
+(define (multiplier p)
+  (car p))
+
+(define (multiplicand p)
+  (caddr p))
+
+(define (deriv exp var)
+ (cond ((number? exp) 0)
+       ((variable? exp) (if (same-variable? exp var) 1 0))
+       ((sum? exp) (make-sum (deriv (addend exp) var)
+                             (deriv (augend exp) var)))
+       ((product? exp) (make-sum (make-product (multiplier exp)
+                                               (deriv (multiplicand exp) var))
+                       (make-product (deriv (multiplier exp) var)
+                                     (multiplicand exp))))
+       (else (error "unknown expression type -- DERIV" exp))))
+
+(deriv '(x + (3 * (x + (y + 2)))) 'x) ; => 4
+
+
+;; 59
+(define (element-of-set? x set)
+  (cond ((null? set) #f)
+        ((equal? x (car set)) #t)
+        (else (element-of-set? x (cdr set)))))
+
+(define (adjoin-set x set)
+  (if (element-of-set? x set)
+      set
+      (cons x set)))
+
+(define (intersection-set set1 set2)
+  (cond ((or (null? set1) (null? set2)) '())
+        ((element-of-set? (car set1) set2) (cons (car set1) (intersection-set (cdr set1) set2)))
+        (else (intersection-set (cdr set1) set2))))
+
+(define (union-set set1 set2)
+  (cond ((null? set1) set2)
+        ((null? set2) set1)
+        ((element-of-set? (car set1) set2) (union-set (cdr set1) set2))
+        (else (cons (car set1) (union-set (cdr set1) set2)))))
+
+(union-set '() '()) ; => ()
+(union-set '(42) '()) ; => (42)
+(union-set '() '(42)) ; => (42)
+(union-set '(42) '(42)) ; => (42)
+(union-set '(0 1) '(1 2)) ; => (0 1 2)
+(union-set '(0 1) '(2 3)) ; => (0 1 2 3)
+
+
+;; 60 (w/ duplicates)
+; The efficiency of testing whether an element is a member of a given set is unaffected by whether the set is allowed to hold duplicate elements.
+(define (element-of-set? x set)
+  (cond ((null? set) #f)
+        ((equal? x (car set)) #t)
+        (else (element-of-set? x (cdr set)))))
+
+(element-of-set? 42 '()) ; => #f
+
+(element-of-set? 42 '(0)) ; => #f
+(element-of-set? 42 '())
+#f
+
+(element-of-set? 42 '(0 1)) ; => #f
+(element-of-set? 42 '(1))
+(element-of-set? 42 '())
+#f
+
+(element-of-set? 42 '(0 1 42)) ; => #t
+(element-of-set? 42 '(1 42))
+(element-of-set? 42 '(42))
+(equal? 42 42)
+#t
+
+(element-of-set? 42 '(42 0 1 42)) ; => #t
+(equal? 42 42)
+#t
+
+; Adjoining an element to a set could be performed regardless of whether that element is already present in the set.
+; That saves us from any potential efficiency concerns associated with the element-of-set? invocation,
+; making it effectively an O(1) operation.
+(define (adjoin-set x set)
+  (cons x set))
+
+(adjoin-set 42 '()) ; => (42)
+(adjoin-set 42 '(42)) ; => (42 42)
+
+; The efficiency of finding the intersection of the two sets is unaffected by whether the set is allowed to hold duplicate elements.
+(define (intersection-set set1 set2)
+  (cond ((or (null? set1) (null? set2)) '())
+        ((element-of-set? (car set1) set2) (cons (car set1) (intersection-set (cdr set1) set2)))
+        (else (intersection-set (cdr set1) set2))))
+
+(intersection-set '() '()) ; => ()
+(intersection-set '(42) '()) ; => ()
+(intersection-set '() '(42)) ; => ()
+(intersection-set '(42) '(42)) ; => (42)
+(intersection-set '(42 42) '(42)) ; => (42 42)
+(intersection-set '(42) '(42 42)) ; => (42)
+(intersection-set '(42 42) '(42 42)) ; => (42 42)
+
+; Finding the union of the two sets could be performed without any membership testing.
+; The efficiency of the operation is effectively the same the one for append'ing the two lists.
+(define (union-set set1 set2)
+  (append set1 set2))
+
+(union-set '() '()) ; => ()
+(union-set '(42) '()) ; => (42)
+(union-set '() '(42)) ; => (42)
+(union-set '(42) '(42)) ; => (42 42)
+(union-set '(0 42) '(1 42)) ; => (0 42 1 42)
+
+
+;; 61
+(define (element-of-set? x set)
+  (cond ((null? set) #f)
+        ((= x (car set)) #t)
+        ((< x (car set)) #f)
+        (else (element-of-set? x (cdr set)))))
+
+(define (intersection-set set1 set2)
+  (if (or (null? set1) (null? set2))
+      '()
+      (let ((x1 (car set1))
+            (x2 (car set2)))
+        (cond ((= x1 x2) (cons x1 (intersection-set (cdr set1) (cdr set2))))
+              ((< x1 x2) (intersection-set (cdr set1) set2))
+              ((< x2 x1) (intersection-set set1 (cdr set2)))))))
+
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+        ((= x (car set)) set)
+        ((< x (car set)) (cons x set))
+        (else (cons (car set) (adjoin-set x (cdr set))))))
+
+(adjoin-set 42 '()) ; => (42)
+'(42)
+
+(adjoin-set 0 '(42)) ; => (0 42)
+(cons 0 '(42))
+'(0 42)
+
+(adjoin-set 1 '(0 42))
+(cons 0 (adjoin-set 1 '(42)))
+(cons 0 (cons 1 '(42)))
+'(0 1 42)
+
+(adjoin-set 322 '(0 1 42))
+(cons 0 (adjoin-set 322 '(1 42)))
+(cons 0 (cons 1 (adjoin-set 322 '(42))))
+(cons 0 (cons 1 (cons 42 (adjoin-set 322 '()))))
+(cons 0 (cons 1 (cons 42 '(322))))
+'(0 1 42 322)
+
+
+;; 62
+(define (union-set set1 set2)
+  (cond ((null? set1) set2)
+        ((null? set2) set1)
+        (else (let ((x1 (car set1))
+                    (x2 (car set2)))
+                (cond ((= x1 x2) (cons x1 (union-set (cdr set1) (cdr set2))))
+                      ((< x1 x2) (cons x1 (union-set (cdr set1) set2)))
+                      ((< x2 x1) (cons x2 (union-set set1 (cdr set2)))))))))
+
+(union-set '() '()) ; => ()
+(union-set '(42) '()) ; => (42)
+(union-set '() '(42)) ; => (42)
+(union-set '(42) '(42)) ; => (42)
+
+(union-set '(0 1) '(42)) ; => (0 1 42)
+(cons 0 (union-set '(1) '(42)))
+(cons 0 (cons 1 (union-set '() '(42))))
+(cons 0 (cons 1 '(42)))
+'(0 1 42)
+
+(union-set '(0 1) '(42 322)) ; => (0 1 42 322)
+(cons 0 (union-set '(1) '(42 322)))
+(cons 0 (cons 1 (union-set '() '(42 322))))
+(cons 0 (cons 1 '(42 322)))
+'(0 1 42 322)
+
+
+;; 63
+(define (entry tree) (car tree))
+(define (left-branch tree) (cadr tree))
+(define (right-branch tree) (caddr tree))
+(define (make-tree entry left right) (list entry left right))
+
+(define (tree->list-1 tree)
+  (if (null? tree)
+      '()
+      (append (tree->list-1 (left-branch tree))
+              (cons (entry tree)
+                    (tree->list-1 (right-branch tree))))))
+
+(define (tree->list-2 tree)
+  (define (copy-to-list tree result-list)
+    (if (null? tree)
+        result-list
+        (copy-to-list (left-branch tree)
+                      (cons (entry tree)
+                            (copy-to-list (right-branch tree)
+                                          result-list)))))
+  (copy-to-list tree '()))
+
+;; a: {1, 3, 5, 7, 9, 11}
+
+(define t1 (make-tree 7
+                      (make-tree 3
+                                 (make-tree 1 '() '())
+                                 (make-tree 5 '() '()))
+                      (make-tree 9
+                                 '()
+                                 (make-tree 11 '() '()))))
+
+(tree->list-1 t1) ; => (1 3 5 7 9 11)
+(tree->list-2 t1) ; => (1 3 5 7 9 11)
+
+(define t2 (make-tree 3
+                      (make-tree 1 '() '())
+                      (make-tree 7
+                                 (make-tree 5 '() '())
+                                 (make-tree 9
+                                            '()
+                                            (make-tree 11 '() '())))))
+
+(tree->list-1 t2) ; => (1 3 5 7 9 11)
+(tree->list-2 t2) ; => (1 3 5 7 9 11)
+
+(define t3 (make-tree 5
+                      (make-tree 3
+                                 (make-tree 1 '() '())
+                                 '())
+                      (make-tree 9
+                                 (make-tree 7 '() '())
+                                 (make-tree 11 '() '()))))
+
+(tree->list-1 t3) ; => (1 3 5 7 9 11)
+(tree->list-2 t3) ; => (1 3 5 7 9 11)
+
+;; b
+(tree->list-1 '(1 (0 () ()) (2 () ()))) ; => (0 1 2)
+(append (tree->list-1 '(0 () ()))
+        (cons 1 (tree->list-1 '(2 () ()))))
+(append (append (tree->list-1 '())
+                (cons 0 (tree->list-1 '())))
+        (cons 1 (tree->list-1 '(2 () ()))))
+(append (append '()
+                (cons 0 (tree->list-1 '())))
+        (cons 1 (tree->list-1 '(2 () ()))))
+(append (append '()
+                (cons 0 '()))
+        (cons 1 (tree->list-1 '(2 () ()))))
+(append '(0)
+        (cons 1 (append (tree->list-1 '())
+                        (cons 2 (tree->list-1 '())))))
+(append '(0)
+        (cons 1 (append '()
+                        (cons 2 (tree->list-1 '())))))
+(append '(0)
+        (cons 1 (append '()
+                        (cons 2 '()))))
+'(0 1 2)
+
+(tree->list-1 '(3 (1 (0 () ()) (2 () ())) (5 (4 () ()) (6 () ())))) ; => (0 1 2 3 4 5 6)
+(append (tree->list-1 '(1 (0 () ()) (2 () ())))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append (tree->list-1 '(0 () ()))
+                (cons 1 (tree->list-1 '(2 () ()))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append (append (tree->list-1 '())
+                        (cons 0 (tree->list-1 '())))
+                (cons 1 (tree->list-1 '(2 () ()))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append (append '()
+                        (cons 0 (tree->list-1 '())))
+                (cons 1 (tree->list-1 '(2 () ()))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append (append '()
+                        (cons 0 '()))
+                (cons 1 (tree->list-1 '(2 () ()))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append '(0)
+                (cons 1 (append (tree->list-1 '())
+                                (cons 2 (tree->list-1 '())))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append '(0)
+                (cons 1 (append '()
+                                (cons 2 (tree->list-1 '())))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append (append '(0)
+                (cons 1 (append '()
+                                (cons 2 '()))))
+        (cons 3 (tree->list-1 '(5 (4 () ()) (6 () ())))))
+(append '(0 1 2)
+        (cons 3 (append (tree->list-1 '(4 () ()))
+                        (cons 5 (tree->list-1 '(6 () ()))))))
+(append '(0 1 2)
+        (cons 3 (append (append (tree->list-1 '())
+                                (cons 4 (tree->list-1 '())))
+          (cons 5 (tree->list-1 '(6 () ()))))))
+(append '(0 1 2)
+        (cons 3 (append (append '()
+                                (cons 4 (tree->list-1 '())))
+                        (cons 5 (tree->list-1 '(6 () ()))))))
+(append '(0 1 2)
+        (cons 3 (append (append '()
+                                (cons 4 '()))
+                        (cons 5 (tree->list-1 '(6 () ()))))))
+(append '(0 1 2)
+        (cons 3 (append '(4)
+                        (cons 5 (append (tree->list-1 '())
+                                        (cons 6 (tree->list-1 '())))))))
+(append '(0 1 2)
+        (cons 3 (append '(4)
+                        (cons 5 (append '()
+                                        (cons 6 (tree->list-1 '())))))))
+(append '(0 1 2)
+        (cons 3 (append '(4)
+                        (cons 5 (append '()
+                                        (cons 6 '()))))))
+'(0 1 2 3 4 5 6)
+
+(tree->list-2 '(1 (0 () ()) (2 () ()))) ; => (0 1 2)
+(copy-to-list '(1 (0 () ()) (2 () ())) '())
+(copy-to-list '(0 () ())
+              (cons 1 (copy-to-list '(2 () ()) '())))
+(copy-to-list '(0 () ())
+              (cons 1 (copy-to-list '()
+                                    (cons 2 (copy-to-list '() '())))))
+(copy-to-list '(0 () ())
+              (cons 1 (copy-to-list '()
+                                    (cons 2 '()))))
+(copy-to-list '(0 () ())
+              (cons 1 '(2)))
+(copy-to-list '()
+              (cons 0 (copy-to-list '() '(1 2))))
+(copy-to-list '()
+              (cons 0 '(1 2)))
+'(0 1 2)
+
+(tree->list-2 '(3 (1 (0 () ()) (2 () ())) (5 (4 () ()) (6 () ())))) ; => (0 1 2 3 4 5 6)
+(copy-to-list '(3 (1 (0 () ()) (2 () ())) (5 (4 () ()) (6 () ()))) '())
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '(5 (4 () ()) (6 () ())) '())))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '(4 () ())
+                                    (cons 5 (copy-to-list '(6 () ()) '())))))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '(4 () ())
+                                    (cons 5 (copy-to-list '()
+                                                          (cons 6 (copy-to-list '() '())))))))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '(4 () ())
+                                    (cons 5 (copy-to-list '()
+                                                          (cons 6 '()))))))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '(4 () ())
+                                    (cons 5 '(6)))))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '()
+                                    (cons 4 (copy-to-list '() '(5 6))))))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 (copy-to-list '()
+                                    (cons 4 '(5 6)))))
+(copy-to-list '(1 (0 () ()) (2 () ()))
+              (cons 3 '(4 5 6)))
+(copy-to-list '(0 () ())
+              (cons 1 (copy-to-list '(2 () ()) '(3 4 5 6))))
+(copy-to-list '(0 () ())
+              (cons 1 (copy-to-list '()
+                                    (cons 2 (copy-to-list '() '(3 4 5 6))))))
+(copy-to-list '(0 () ())
+              (cons 1 (copy-to-list '()
+                                    (cons 2 '(3 4 5 6)))))
+(copy-to-list '(0 () ())
+              (cons 1 '(2 3 4 5 6)))
+(copy-to-list '()
+              (cons 0 (copy-to-list '() '(1 2 3 4 5 6))))
+(copy-to-list '()
+              (cons 0 '(1 2 3 4 5 6)))
+'(0 1 2 3 4 5 6)
+
+
+;; 64
+(define (entry tree) (car tree))
+(define (left-branch tree) (cadr tree))
+(define (right-branch tree) (caddr tree))
+(define (make-tree entry left right) (list entry left right))
+
+(define (partial-tree elts n) ; Given the ordered list of elements and the number of elements the tree is to be constructed from...
+  (if (= n 0) ; If the number of elements we have to construct a tree from is zero...
+      (cons '() elts) ; Return an empty constructed tree with the list of supplied elements not being included in the tree.
+      (let ((left-size (div (- n 1) 2))) ; Otherwise, let the number of elements to form the left branch of the tree be approx. half of the number of elements of the tree being constructed.
+        (let ((left-result (partial-tree elts left-size))) ; Let the result of constructing the left branch of the tree be a pair of the tree built with the appropriate number of elements and a list of the elements not included in constructing that tree.
+          (let ((left-tree (car left-result)) ; Let the left branch of the tree being built be the first element of the result pair.
+                (non-left-elts (cdr left-result)) ; Let the elements not included in construction of the left branch of the tree be the second element of the result pair.
+                (right-size (- n (+ left-size 1)))) ; Let the number of elements to form the right branch of the tree be the total number elements in the tree minus the number of elements left over constructing the left branch of the tree, as well as 1 element that is necessary to form the current node.
+            (let ((this-entry (car non-left-elts)) ; Let current node of the tree to hold the first of the elements left over constructing the left branch of the tree as its entry.
+                  (right-result (partial-tree (cdr non-left-elts) right-size))) ; Let the result of constructing the right branch of the tree be a pair of the tree built with the appropriate number of elements and a list of the elements not included in constructing that tree.
+              (let ((right-tree (car right-result)) ; Let the right branch of the tree being build be the first element of the result pair.
+                    (remaining-elts (cdr right-result))) ; Let the elements not included in construction of the right branch of the tree be the second element of the result pair.
+                (cons (make-tree this-entry left-tree right-tree) ; Return a pair with the first element being the tree with the appropriate value as its entry and its both left and right branches constructed...
+                      remaining-elts)))))))) ; And the second element being the list of elements not included in constructing the tree.
+
+(define (list->tree elements)
+  (car (partial-tree elements (length elements))))
+
+(list->tree '(1 3 5 7 9 11)) ; => (5 (1 () (3 () ())) (9 (7 () ()) (11 () ())))
+;   5
+;  / \
+; 1   9
+; |  / \
+; 3 7   11
+
+
+;; 65
+(define (entry tree) (car tree))
+(define (left-branch tree) (cadr tree))
+(define (right-branch tree) (caddr tree))
+(define (make-tree entry left right) (list entry left right))
+
+; FIXME
+
+
+;; 66
+(define (entry tree) (car tree))
+(define (left-branch tree) (cadr tree))
+(define (right-branch tree) (caddr tree))
+(define (make-tree entry left right) (list entry left right))
+
+(define (lookup key tree)
+  (cond ((null? tree) #f)
+        ((= key (entry tree)) (entry tree))
+        ((< key (entry tree)) (lookup key (left-branch tree)))
+        ((> key (entry tree)) (lookup key (right-branch tree)))))
+
+(lookup 0 '(3 (1 (0 () ()) (2 () ())) (5 (4 () ()) (6 () ())))) ; => 0
+(lookup 42 '(3 (1 (0 () ()) (2 () ())) (5 (4 () ()) (6 () ())))) ; => #f
+
+
+(define (make-leaf symbol weight)
+  (list 'leaf symbol weight))
+
+(define (symbol-leaf x) (cadr x))
+
+(define (weight-leaf x) (caddr x))
+
+(define (leaf? object)
+  (eq? (car object) 'leaf))
+
+
+(define (left-branch tree) (car tree))
+
+(define (right-branch tree) (cadr tree))
+
+(define (symbols tree)
+  (if (leaf? tree)
+      (list (symbol-leaf tree))
+      (caddr tree)))
+
+(define (weight tree)
+  (if (leaf? tree)
+      (weight-leaf tree)
+      (cadddr tree)))
+
+(define (make-code-tree left right)
+  (list left
+        right
+        (append (symbols left) (symbols right))
+        (+ (weight left) (weight right))))
+
+
+(define (choose-branch bit branch)
+  (cond ((= bit 0) (left-branch branch))
+        ((= bit 1) (right-branch branch))
+        (else (error "bad bit -- CHOOSE-BRANCH" bit))))
+
+(define (decode bits tree)
+  (define (decode-1 bits current-branch)
+    (if (null? bits)
+        '()
+        (let ((next-branch (choose-branch (car bits) current-branch)))
+          (if (leaf? next-branch)
+              (cons (symbol-leaf next-branch) (decode-1 (cdr bits) tree))
+              (decode-1 (cdr bits) next-branch)))))
+  (decode-1 bits tree))
+
+
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+        ((< (weight x) (weight (car set))) (cons x set))
+        (else (cons (car set) (adjoin-set x (cdr set))))))
+
+(define (make-leaf-set pairs)
+  (if (null? pairs)
+      '()
+      (let ((pair (car pairs)))
+        (adjoin-set (make-leaf (car pair)
+                               (cadr pair))
+                    (make-leaf-set (cdr pairs))))))
+
+;; 67
+(define sample-tree (make-code-tree (make-leaf 'A 4)
+                                    (make-code-tree (make-leaf 'B 2)
+                                                    (make-code-tree (make-leaf 'C 1)
+                                                                    (make-leaf 'D 1)))))
+
+(define sample-message '(0 1 1 0 0 1 0 1 0 1 1 1 0))
+
+(decode sample-message sample-tree) ; => (A C A B B D A)
+
+;; 68
+(define (contains? x xs)
+  (cond ((null? xs) #f)
+        ((equal? x (car xs)) #t)
+        (else (contains? x (cdr xs)))))
+
+(define (encode-symbol x tree)
+  (define (encode-symbol-iteratively result x tree)
+    (if (leaf? tree)
+      (if (equal? (symbol-leaf tree) x)
+          result
+          (error "bad symbol -- ENCODE-SYMBOL" x))
+      (cond ((contains? x (symbols (left-branch tree)))
+             (encode-symbol-iteratively (append result '(0)) x (left-branch tree)))
+            ((contains? x (symbols (right-branch tree)))
+             (encode-symbol-iteratively (append result '(1)) x (right-branch tree)))
+            (else (error "bad symbol -- ENCODE-SYMBOL" x)))))
+  (encode-symbol-iteratively '() x tree))
+
+(define (encode message tree)
+  (if (null? message)
+      '()
+      (append (encode-symbol (car message) tree)
+              (encode (cdr message) tree))))
+
+(encode-symbol 'A sample-tree) ; => (0)
+(encode-symbol 'B sample-tree) ; => (1 0)
+(encode-symbol 'C sample-tree) ; => (1 1 0)
+(encode-symbol 'D sample-tree) ; => (1 1 1)
+; (encode-symbol 'E sample-tree) ; ~>
+
+sample-message                        ; => (0 1 1 0 0 1 0 1 0 1 1 1 0)
+(encode '(A C A B B D A) sample-tree) ; => (0 1 1 0 0 1 0 1 0 1 1 1 0)
+
+;; 69
+(define (successive-merge leaf-set)
+  (if (< 1 (length leaf-set))
+      (successive-merge (adjoin-set (make-code-tree (car leaf-set) (cadr leaf-set)) (cddr leaf-set)))
+      (car leaf-set)))
+
+(define (generate-huffman-tree pairs)
+  (successive-merge (make-leaf-set pairs)))
+
+(make-leaf-set (list (list 'A 4) (list 'B 2) (list 'C 1) (list 'D 1))) ; => ((leaf D 1) (leaf C 1) (leaf B 2) (leaf A 4))
+sample-tree ; => ((leaf A 4) ((leaf B 2) ((leaf C 1) (leaf D 1) (C D) 2) (B C D) 4) (A B C D) 8)
+;                 |<------>| |<-------------------------------------------------->| |<----->| ^
+;                             |<------>| |<--------------------------->| |<--->| ^
+;                                         |<------>| |<------>| |<->| ^
+
+(define pairs (list (list 'A 4) (list 'B 2) (list 'C 1) (list 'D 1)))
+(generate-huffman-tree pairs) ; => ((leaf A 4) ((leaf B 2) ((leaf D 1) (leaf C 1) (D C) 2) (B D C) 4) (A B D C) 8)
+
+;; 70
+(define pairs (list (list 'A 2)
+                    (list 'BOOM 1)
+                    (list 'GET 2)
+                    (list 'JOB 2)
+                    (list 'NA 16)
+                    (list 'SHA 3)
+                    (list 'YIP 9)
+                    (list 'WAH 1)))
+
+(define tree (generate-huffman-tree pairs))
+
+(encode '(GET A JOB) tree)                               ; => (1 1 1 1 1 1 1 0 0 1 1 1 1 0)
+(encode '(SHA NA NA NA NA NA NA NA NA) tree)             ; => (1 1 1 0 0 0 0 0 0 0 0 0)
+(encode '(GET A JOB) tree)                               ; => (1 1 1 1 1 1 1 0 0 1 1 1 1 0)
+(encode '(SHA NA NA NA NA NA NA NA NA) tree)             ; => (1 1 1 0 0 0 0 0 0 0 0 0)
+(encode '(WAH YIP YIP YIP YIP YIP YIP YIP YIP YIP) tree) ; => (1 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0)
+(encode '(SHA BOOM) tree)                                ; => (1 1 1 0 1 1 0 1 1)
+; Total bits required: 84 [bits]
+; Total bits required for a fixed-length code for an eight-symbol alphabet: 3 [bits/symbol] * 36 [symbols] = 108 [bits]
+
+;; 71
+; symbols  frequencies
+; 0        1
+; 1        2
+; 2        4
+; ...
+; n-1      2**(n-1)
+
+; n = 5
+; {0 1 2 3 4} 31 -- 4 16, encoded in 1 bit
+;  |
+; {0 1 2 3} 15 -- 3 8, encoded in 2 bits
+;  |
+; {0 1 2} 7 -- 2 4, encoded in 3 bits
+;  |
+; {0 1} 3 -- 1 2, encoded in 4 bits
+;  |
+; 0 1, encoded in 4 bits
+
+; n = 10
+; {0 1 2 3 4 5 6 7 8 9} 1023 -- 9 512, encoded in 1 bit
+;  |
+; {0 1 2 3 4 5 6 7 8} 511 -- 8 256, encoded in 2 bits
+;  |
+; {0 1 2 3 4 5 6 7} 255 -- 7 128, encoded in 3 bits
+;  |
+; {0 1 2 3 4 5 6} 127 -- 6 64, encoded in 4 bits
+;  |
+; {0 1 2 3 4 5} 63 -- 5 32, encoded in 5 bits
+;  |
+; {0 1 2 3 4} 31 -- 4 16, encoded in 6 bits
+;  |
+; {0 1 2 3} 15 -- 3 8, encoded in 7 bits
+;  |
+; {0 1 2} 7 -- 2 4, encoded in 8 bits
+;  |
+; {0 1} 3 -- 1 2, encoded in 9 bits
+;  |
+; 0 1, encoded in 9 bits
+
+; For an arbitrary alphabet of n symbols, given the relative frequencies as defined above:
+; 1 bit is required to encode the most frequent symbol,
+; (n-1) bits are required to encode the least frequent symbol.
+
+
+(define (attach-tag type-tag contents)
+  (cons type-tag contents))
+
+(define (type-tag datum)
+  (if (pair? datum)
+      (car datum)
+      (error "Bad tagged datum -- TYPE-TAG" datum)))
+
+(define (contents datum)
+  (if (pair? datum)
+      (cdr datum)
+      (error "Bad tagged datum -- CONTENTS" datum)))
+
+; (put <op> <type> <item>)
+; (get <op> <type>)
+
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (error "No method for these types -- APPLY-GENERIC"
+                 (list op type-tags))))))
+
+
+;; 73
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp) (if (same-variable? exp var) 1 0))
+        ((sum? exp) (make-sum (deriv (addend exp) var)
+                              (deriv (augend exp) var)))
+        ((product? exp) (make-sum (make-product (multiplier exp)
+                                                (deriv (multiplicand exp) var))
+                                  (make-product (deriv (multiplier exp) var)
+                                                (multiplicand exp))))
+        ; ...
+        (else (error "unknown expression type -- DERIV" exp))))
+
+(define (operator exp) (car exp))
+(define (operands exp) (cdr exp))
+
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp) (if (same-variable? exp var) 1 0))
+        (else ((get 'deriv (operator exp)) (operands exp) var))))
+
+;; b
+(define (install-deriv-sum-package)
+  ;; internal procedures
+  (define (make-sum x y) (list x y))
+  (define (addend this) (car this))
+  (define (augend this) (cadr this))
+  ;; exported procedures
+  (define (tag this) (attach-tag '+ this))
+  (put 'make-exp '+
+       (lambda (x y)
+         (tag (make-sum x y))))
+  (put 'deriv '+
+       (lambda (exp var)
+         (tag (make-sum (deriv (addend exp) var)
+                        (deriv (augend exp) var)))))
+  'done)
+
+(deriv '(+ x 2) 'x)
+((get 'deriv (operator '(+ x 2))) (operands '(+ x 2)) 'x)
+((get 'deriv '+) '(x 2) 'x)
+((lambda (exp var)
+   (tag (make-sum (deriv (addend exp) var)
+                  (deriv (augend exp) var))))
+ '(x 2)
+ 'x)
+(tag (make-sum (deriv (addend '(x 2)) 'x)
+               (deriv (augend '(x 2)) 'x)))
+(tag (make-sum (deriv 'x 'x)
+               (deriv 2 'x)))
+(tag (make-sum 1
+               0))
+(tag '(1 0))
+'(+ 1 0)
+
+(define (install-deriv-product-package)
+  ;; imported procedures
+  (define (make-sum x y) ((get 'make-exp '+) x y))
+  ;; internal procedures
+  (define (make-product x y) (list x y))
+  (define (multiplier this) (car this))
+  (define (multiplicand this) (cadr this))
+  ;; exported procedures
+  (define (tag x) (attach-tag '* x))
+  (put 'make-exp '*
+       (lambda (x y)
+         (tag (make-product x y))))
+  (put 'deriv '*
+       (lambda (exp var)
+         (make-sum (tag (make-product (multiplier exp)
+                                      (deriv (multiplicand exp) var)))
+                   (tag (make-product (deriv (multiplier exp) var)
+                                      (multiplicand exp))))))
+  'done)
+
+(deriv '(* x 2) 'x)
+((get 'deriv (operator '(* x 2))) (operands '(* x 2)) 'x)
+((get 'deriv '*) '(x 2) 'x)
+((lambda (exp var)
+   (make-sum (tag (make-product (multiplier exp)
+                                (deriv (multiplicand exp) var)))
+             (tag (make-product (deriv (multiplier exp) var)
+                                (multiplicand exp)))))
+ '(x 2)
+ 'x)
+(make-sum (tag (make-product (multiplier '(x 2))
+                             (deriv (multiplicand '(x 2)) 'x)))
+          (tag (make-product (deriv (multiplier '(x 2)) 'x)
+                             (multiplicand '(x 2)))))
+(make-sum (tag (make-product 'x
+                             (deriv 2 'x)))
+          (tag (make-product (deriv 'x 'x)
+                             2)))
+(make-sum (tag (make-product 'x
+                             0))
+          (tag (make-product 1
+                             2)))
+(make-sum (tag '(x 0))
+          (tag '(1 2)))
+(make-sum '(* x 0)
+          '(* 1 2))
+((get 'make-exp '+) '(* x 0)
+                    '(* 1 2))
+((lambda (x y)
+   (tag (make-sum x y)))
+ '(* x 0)
+ '(* 1 2))
+(tag (make-sum '(* x 0) '(* 1 2)))
+(tag '((* x 0) (* 1 2)))
+'(+ (* x 0) (* 1 2))
+
+;; c
+(define (install-deriv-exponentiation-package)
+  ;; imported procedures
+  (define (make-product x y) ((get 'make-exp '*) x y))
+  ;; internal procedures
+  (define (make-exponentiation x y) (list x y))
+  (define (base this) (car this))
+  (define (exponent this) (cadr this))
+  ;; exported procedures
+  (define (tag x) (attach-tag '** x))
+  (put 'make-exp '**
+       (lambda (x y)
+         (tag (make-exponentiation x y))))
+  (put 'deriv '**
+       (lambda (exp var)
+         (make-product (make-product (exponent exp)
+                                     (tag (make-exponentiation (base exp) (- (exponent exp) 1))))
+                       (deriv (base exp) var))))
+  'done)
+
+(deriv '(** x 2) 'x)
+((get 'deriv (operator '(** x 2))) (operands '(** x 2)) 'x)
+((get 'deriv '**) '(x 2) 'x)
+((lambda (exp var)
+   (make-product (make-product (exponent exp)
+                               (tag (make-exponentiation (base exp) (- (exponent exp) 1))))
+                 (deriv (base exp) var)))
+ '(x 2)
+ 'x)
+(make-product (make-product (exponent '(x 2))
+                            (tag (make-exponentiation (base '(x 2)) (- (exponent '(x 2)) 1))))
+              (deriv (base '(x 2)) 'x))
+(make-product (make-product 2
+                            (tag (make-exponentiation 'x (- 2 1))))
+              (deriv 'x 'x))
+(make-product (make-product 2
+                            (tag (make-exponentiation 'x 1)))
+              1)
+(make-product (make-product 2
+                            (tag '(x 1)))
+              1)
+(make-product (make-product 2
+                            '(** (x 1)))
+              1)
+(make-product ((get 'make-exp '*) 2 '(** (x 1)))
+              1)
+(make-product ((lambda (x y) (tag (make-product x y))) 2 '(** (x 1)))
+              1)
+(make-product (tag (make-product 2 '(** (x 1))))
+              1)
+(make-product (tag '(2 (** (x 1))))
+              1)
+(make-product '(* 2 (** (x 1)))
+              1)
+((get 'make-exp '*) '(* 2 (** (x 1))) 1)
+((lambda (x y) (tag (make-product x y))) '(* 2 (** (x 1))) 1)
+(tag (make-product '(* 2 (** (x 1))) 1))
+(tag '((* 2 (** (x 1))) 1))
+'(* (* 2 (** (x 1))) 1)
