@@ -2521,7 +2521,7 @@ sample-tree ; => ((leaf A 4) ((leaf B 2) ((leaf C 1) (leaf D 1) (C D) 2) (B C D)
           (apply proc (map contents args))
           (error "No method for these types -- APPLY-GENERIC"
                  (list op type-tags))))))
-
+;; (apply-generic op . args) ~ (apply (get op (map type-tag args)) (map contents args))
 
 ;; 73
 (define (deriv exp var)
@@ -2834,3 +2834,329 @@ sample-tree ; => ((leaf A 4) ((leaf B 2) ((leaf C 1) (leaf D 1) (C D) 2) (B C D)
           ((eq? op 'angle) a)
           (else (error "Unknown op -- MAKE-FROM-MAG-ANG" op))))
   dispatch)
+
+
+;; 76
+;; FIXME
+
+
+;; 77
+(define z (make-complex-from-real-imag 3 4)) ; 3 + 4i
+
+z
+(make-complex-from-real-imag 3 4)
+((get 'make-from-real-imag 'complex) 3 4)
+((lambda (x y) (tag (make-from-real-imag x y))) 3 4)
+(tag (make-from-real-imag 3 4))
+(tag ((get 'make-from-real-imag 'rectangular) 3 4))
+(tag ((lambda (x y) (tag (make-from-real-imag x y))) 3 4))
+(tag (tag (make-from-real-imag 3 4)))
+(tag (tag (cons 3 4)))
+(tag (cons 'rectangular (cons 3 4)))
+(cons 'complex (cons 'rectangular (cons 3 4)))
+
+; (define (apply-generic op . args)
+;   (let ((type-tags (map type-tag args)))
+;     (let ((proc (get op type-tags)))
+;       (if proc
+;           (apply proc (map contents args))
+;           (error "No method for these types -- APPLY-GENERIC"
+;                  (list op type-tags))))))
+
+(magnitude z)
+(apply-generic 'magnitude z)
+(apply (get 'magnitude '(complex)) (cons 'rectangular (cons 3 4))) ; ~>
+
+(define (install-complex-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put 'real-part '(complex) real-part)
+  (put 'imag-part '(complex) imag-part)
+  (put 'magnitude '(complex) magnitude)
+  (put 'angle '(complex) angle)
+  ...)
+
+(magnitude z)
+(apply-generic 'magnitude z)
+(apply (get 'magnitude '(complex)) (list (cons 'rectangular (cons 3 4)))) ; dispatch on (complex)
+(magnitude (cons 'rectangular (cons 3 4)))
+(apply-generic 'magnitude (list (cons 'rectangular (cons 3 4))))
+(apply (get 'magnitude '(rectangular)) (list (cons 3 4))) ; dispatch on (rectangular)
+(magnitude (cons 3 4))
+(sqrt (+ (square (real-part (cons 3 4)))
+         (square (imag-part (cons 3 4)))))
+(sqrt (+ (square 3)
+         (square 4)))
+(sqrt (+ 9
+         16))
+(sqrt 25)
+5
+
+
+;; 78
+(define (attach-tag type-tag contents)
+  (if (eq? type-tag 'scheme-number)
+      contents
+      (cons type-tag contents)))
+
+(define (type-tag datum)
+  (cond ((number? datum) 'scheme-number)
+        ((pair? datum) (car datum))
+        (else (error "Bad tagged datum -- TYPE-TAG" datum))))
+
+(define (contents datum)
+  (cond ((number? datum) datum)
+        ((pair? datum) (cdr datum))
+        (else (error "Bad tagged datum -- CONTENTS" datum))))
+
+(add 3 4)
+(apply-generic 'add 3 4)
+(apply (get 'add (map type-tag '(3 4)))
+       (map contents '(3 4)))
+(apply (get 'add (list (type-tag 3) (type-tag 4)))
+       (list (contents 3) (contents 4)))
+(apply (get 'add '(scheme-number scheme-number))
+       '(3 4))
+(apply (get 'add '(scheme-number scheme-number))
+       '(3 4))
+((lambda (x y) (tag (+ x y))) 3 4)
+(tag (+ 3 4))
+(tag 7)
+(attach-tag 'scheme-number 7)
+7
+
+
+;; 79
+(define (equ? x y) (apply-generic 'equ? x y))
+
+(define (install-scheme-number-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put 'equ? '(scheme-number scheme-number)
+       (lambda (x y) (= x y)))
+  ...)
+
+(equ? (make-scheme-number 1) (make-scheme-number 2))
+(equ? ((get 'make 'scheme-number) 1) ((get 'make 'scheme-number) 2))
+(equ? ((lambda (x) (tag x)) 1) ((lambda (x) (tag x)) 2))
+(equ? (tag 1) (tag 2))
+(equ? (cons 'scheme-number 1) (cons 'scheme-number 2))
+(apply-generic 'equ? (cons 'scheme-number 1) (cons 'scheme-number 2))
+(apply (get 'equ? (map type-tag (list (cons 'scheme-number 1) (cons 'scheme-number 2))))
+       (map contents (list (cons 'scheme-number 1) (cons 'scheme-number 2))))
+(apply (get 'equ? '(scheme-number scheme-number))
+       '(1 2))
+((lambda (x y) (= x y)) 1 2)
+(= 1 2)
+#f
+
+(define (install-rational-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put 'equ? '(rational rational)
+       (lambda (x y) (and (= (numer x) (numer y))
+                          (= (denom x) (denom y)))))
+  ...)
+
+(equ? (make-rational 1 2) (make-rational 3 4))
+(equ? ((get 'make 'rational) 1 2) ((get 'make 'rational) 3 4))
+(equ? ((lambda (n d) (tag (make-rat n d))) 1 2) ((lambda (n d) (tag (make-rat n d))) 3 4))
+(equ? (tag (make-rat 1 2)) (tag (make-rat 3 4)))
+(equ? (tag (cons 1 2)) (tag (cons 3 4)))
+(equ? (cons 'rational (cons 1 2)) (cons 'rational (cons 3 4)))
+(apply-generic 'equ? (cons 'rational (cons 1 2)) (cons 'rational (cons 3 4)))
+(apply (get 'equ? (map type-tag (list (cons 'rational (cons 1 2)) (cons 'rational (cons 3 4)))))
+       (map contents (list (cons 'rational (cons 1 2)) (cons 'rational (cons 3 4)))))
+(apply (get 'equ? '(rational rational))
+       (list (cons 1 2) (cons 3 4)))
+((lambda (x y) (and (= (numer x) (numer y))
+                    (= (denom x) (denom y))))
+ (cons 1 2)
+ (cons 3 4))
+(and (= (numer (cons 1 2)) (numer (cons 3 4)))
+     (= (denom (cons 1 2)) (denom (cons 3 4))))
+(and (= 1 3)
+     (= 2 4))
+#f
+
+(define (install-complex-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put 'equ? '(complex complex)
+       (lambda (z1 z2) (and (= (real-part z1) (real-part z2))
+                            (= (imag-part z1) (imag-part z2)))))
+  ...)
+
+(equ? (make-complex-from-real-imag 1 2) (make-complex-from-real-imag 3 4))
+(equ? ((get 'make-from-real-imag 'complex) 1 2) ((get 'make-from-real-imag 'complex) 3 4))
+(equ? ((lambda (x y) (tag (make-from-real-imag x y))) 1 2) ((lambda (x y) (tag (make-from-real-imag x y))) 3 4))
+(equ? (tag (make-from-real-imag 1 2)) (tag (make-from-real-imag 3 4)))
+(equ? (tag ((get 'make-from-real-imag 'rectangular) 1 2)) (tag ((get 'make-from-real-imag 'rectangular) 3 4)))
+(equ? (tag ((lambda (x y) (tag (make-from-real-imag x y))) 1 2)) (tag ((lambda (x y) (tag (make-from-real-imag x y))) 3 4)))
+(equ? (tag (tag (make-from-real-imag 1 2))) (tag (tag (make-from-real-imag 3 4))))
+(equ? (tag (tag (cons 1 2))) (tag (tag (cons 3 4))))
+(equ? (tag (cons 'rectangular (cons 1 2))) (tag (cons 'rectangular (cons 3 4))))
+(equ? (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))
+(apply-generic 'equ? (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))
+(apply (get 'equ? (map type-tag (list (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))))
+       (map contents (list (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))))
+(apply (get 'equ? '(complex complex))
+       (list (cons 'rectangular (cons 1 2)) (cons 'rectangular (cons 3 4))))
+((lambda (z1 z2) (and (= (real-part z1) (real-part z2))
+                      (= (imag-part z1) (imag-part z2))))
+ (cons 'rectangular (cons 1 2))
+ (cons 'rectangular (cons 3 4)))
+(and (= (real-part (cons 'rectangular (cons 1 2))) (real-part (cons 'rectangular (cons 3 4))))
+     (= (imag-part (cons 'rectangular (cons 1 2))) (imag-part (cons 'rectangular (cons 3 4)))))
+(and (= (apply-generic 'real-part (cons 'rectangular (cons 1 2))) (apply-generic 'real-part (cons 'rectangular (cons 3 4))))
+     (= (apply-generic 'imag-part (cons 'rectangular (cons 1 2))) (apply-generic 'imag-part (cons 'rectangular (cons 3 4)))))
+(and (= (apply (get 'real-part (map type-tag (list (cons 'rectangular (cons 1 2)))))
+               (map contents (list (cons 'rectangular (cons 1 2)))))
+        (apply (get 'real-part (map type-tag (list (cons 'rectangular (cons 3 4)))))
+               (map contents (list (cons 'rectangular (cons 3 4))))))
+     (= (apply (get 'imag-part (map type-tag (list (cons 'rectangular (cons 1 2)))))
+               (map contents (list (cons 'rectangular (cons 1 2)))))
+        (apply (get 'imag-part (map type-taag (list (cons 'rectangular (cons 3 4)))))
+               (map contents (list (cons 'rectangular (cons 3 4)))))))
+(and (= (apply (get 'real-part '(rectangular))
+               (list (cons 1 2)))
+        (apply (get 'real-part '(rectangular))
+               (list (cons 3 4))))
+     (= (apply (get 'imag-part '(rectangular))
+               (list (cons 1 2)))
+        (apply (get 'imag-part '(rectangular))
+               (list (cons 3 4)))))
+(and (= (real-part (cons 1 2))
+        (real-part (cons 3 4)))
+     (= (imag-part (cons 1 2))
+        (imag-part (cons 3 4))))
+(and (= 1
+        3)
+     (= 2
+        4))
+#f
+
+
+;; 80
+(define (=zero? x) (apply-generic '=zero? x))
+
+(define (install-scheme-number-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put '=zero? '(scheme-number)
+       (lambda (x) (= x 0)))
+  ...)
+
+(=zero? (make-scheme-number 42))
+(=zero? ((get 'make 'scheme-number) 42))
+(=zero? ((lambda (x) (tag x)) 42))
+(=zero? (tag 42))
+(=zero? (cons 'scheme-number 42))
+(apply-generic '=zero? (cons 'scheme-number 42))
+(apply (get '=zero? (map type-tag (list (cons 'scheme-number 42))))
+       (map contents (list (cons 'scheme-number 42))))
+(apply (get '=zero? '(scheme-number))
+       '(42))
+((lambda (x) (= x 0))
+ 42)
+(= 42 0)
+#f
+
+(define (install-rational-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put '=zero? '(rational)
+       (lambda (x) (= (numer x) 0)))
+  ...)
+
+(=zero? (make-rational 1 42))
+(=zero? ((get 'make 'rational) 1 42))
+(=zero? ((lambda (n d) (tag (make-rat n d))) 1 42))
+(=zero? (tag (make-rat 1 42)))
+(=zero? (tag (cons 1 42)))
+(=zero? (cons 'rational (cons 1 42)))
+(apply-generic '=zero? (cons 'rational (cons 1 42)))
+(apply (get '=zero? (map type-tag (list (cons 'rational (cons 1 42)))))
+       (map contents (list (cons 'rational (cons 1 42)))))
+(apply (get '=zero? '(rational))
+       (list (cons 1 42)))
+((lambda (x) (= (numer x) 0))
+ (cons 1 42))
+(= (numer (cons 1 42)) 0)
+(= 1 0)
+#f
+
+(define (install-complex-package)
+  ...
+  ;; interface to the rest of the system
+  ...
+  (put '=zero? '(complex)
+       (lambda (z) (and (= (real-part z) 0)
+                        (= (imag-part z) 0))))
+  ...)
+
+(equ? (make-complex-from-real-imag 0 42))
+(equ? ((get 'make-from-real-imag 'complex) 0 42))
+(equ? ((lambda (x y) (tag (make-from-real-imag x y))) 0 42))
+(equ? (tag (make-from-real-imag 0 42)))
+(equ? (tag ((get 'make-from-real-imag 'rectangular) 0 42)))
+(equ? (tag ((lambda (x y) (tag (make-from-real-imag x y))) 0 42)))
+(equ? (tag (tag (make-from-real-imag 0 42))))
+(equ? (tag (tag (cons 0 42))))
+(equ? (tag (cons 'rectangular (cons 0 42))))
+(equ? (cons 'complex (cons 'rectangular (cons 0 42))))
+(apply-generic 'equ? (cons 'complex (cons 'rectangular (cons 0 42))))
+(apply (get 'equ? (map type-tag (list (cons 'complex (cons 'rectangular (cons 0 42))))))
+       (map contents (list (cons 'complex (cons 'rectangular (cons 0 42))))))
+(apply (get 'equ? '(complex))
+       (list (cons 'rectangular (cons 0 42))))
+((lambda (z) (and (= (real-part z) 0)
+                  (= (imag-part z) 0)))
+ (cons 'rectangular (cons 0 42)))
+(and (= (real-part (cons 'rectangular (cons 0 42))) 0)
+     (= (imag-part (cons 'rectangular (cons 0 42))) 0))
+(and (= (apply-generic 'real-part (cons 'rectangular (cons 0 42))) 0)
+     (= (apply-generic 'imag-part (cons 'rectangular (cons 0 42))) 0))
+(and (= (apply (get 'real-part (map type-tag (list (cons 'rectangular (cons 0 42)))))
+               (map contents (list (cons 'rectangular (cons 0 42)))))
+        0)
+     (= (apply (get 'imag-part (map type-tag (list (cons 'rectangular (cons 0 42)))))
+               (map contents (list (cons 'rectangular (cons 0 42)))))
+        0))
+(and (= (apply (get 'real-part '(rectangular))
+               (list (cons 0 42)))
+        0)
+     (= (apply (get 'imag-part '(rectangular))
+               (list (cons 0 42)))
+        0))
+(and (= (real-part (cons 0 42))
+        0)
+     (= (imag-part (cons 0 42))
+        0))
+(and (= 0
+        0)
+     (= 42
+        0))
+#f
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
