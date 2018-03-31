@@ -2693,3 +2693,144 @@ sample-tree ; => ((leaf A 4) ((leaf B 2) ((leaf C 1) (leaf D 1) (C D) 2) (B C D)
 (tag (make-product '(* 2 (** (x 1))) 1))
 (tag '((* 2 (** (x 1))) 1))
 '(* (* 2 (** (x 1))) 1)
+
+; Whenever the get (put) operation changes, the put (get) operation ought to change as well to accomodate the appropriate order of operation/type semantics.
+
+
+;; 74
+; 1st division
+(define (package-for-division-1)
+  ;; internal procedures
+  (define records '((emp-2 ((salary 12) (address A2)))
+                    (emp-3 ((salary 13) (address A3)))
+                    (emp-1 ((salary 11) (address A1)))))
+  (define (emp-name record) (car record))
+  (define (emp-address record) (cadr (cadr (cadr record))))
+  (define (emp-salary record) (cadr (car (cadr record))))
+  (define (find-record name records)
+    (cond ((null? records) #f)
+          ((eq? name (emp-name (car records))) (car records))
+          (else (find-record name (cdr records)))))
+  ;; exported procedures
+  (define (tag x) (attach-tag 'div-1 x))
+  (put 'get-record 'div-1
+       (lambda (name)
+         (tag (find-record name records))))
+  (put 'get-salary 'div-1
+       (lambda (record)
+         (emp-salary record)))
+  'done)
+
+
+; 2nd division
+(define (package-for-division-2)
+  ;; internal procedures
+  (define records '((emp-1 ((address B1) (salary 21)))
+                    (emp-2 ((address B2) (salary 22)))
+                    (emp-3 ((address B3) (salary 23)))))
+  (define (emp-name record) (car record))
+  (define (emp-address record) (cadr (car (cadr record))))
+  (define (emp-salary record) (cadr (cadr (cadr record))))
+  (define (find-record name records)
+    (cond ((null? records) #f)
+          ((eq? name (emp-name (car records))) (car records))
+          (else (find-record name (cdr records)))))
+  ;; exported procedures
+  (define (tag x) (attach-tag 'div-2 x))
+  (put 'get-record 'div-2
+       (lambda (name)
+         (tag (find-record name records))))
+  (put 'get-salary 'div-2
+       (lambda (record)
+         (emp-salary record)))
+  'done)
+
+;; a
+(define (get-record division name)
+  ((get 'get-record division) name))
+
+(get-record 'div-1 'emp-1)
+((get 'get-record 'div-1) 'emp-1)
+((lambda (name) (tag (find-record name records)) 'emp-1))
+(tag (find-record 'emp-1 records))
+(tag '(emp-1 ((salary 11) (address A1))))
+'(div-1 (emp-1 ((salary 11) (address A1))))
+
+(get-record 'div-2 'emp-1)
+((get 'get-record 'div-2) 'emp-1)
+((lambda (name) (tag (find-record name records)) 'emp-1))
+(tag (find-record 'emp-1 records))
+(tag '(emp-1 ((address B1) (salary 21))))
+'(div-2 (emp-1 ((address B1) (salary 21))))
+
+;; b
+(define (get-salary record)
+  ((get 'get-salary (type-tag record)) (contents record)))
+
+(get-salary '(div-1 (emp-1 ((salary 11) (address A1)))))
+((get 'get-salary (type-tag '(div-1 (emp-1 ((salary 11) (address A1))))))
+ (contents '(div-1 (emp-1 ((salary 11) (address A1))))))
+((get 'get-salary 'div-1) '(emp-1 ((salary 11) (address A1))))
+((lambda (record) (emp-salary record)) '(emp-1 ((salary 11) (address A1))))
+(emp-salary '(emp-1 ((salary 11) (address A1))))
+(cadr (car (cadr '(emp-1 ((salary 11) (address A1))))))
+(cadr (car '((salary 11) (address A1))))
+(cadr '(salary 11))
+11
+
+(get-salary '(div-2 (emp-1 ((address B1) (salary 21)))))
+((get 'get-salary (type-tag '(div-2 (emp-1 ((address B1) (salary 21))))))
+ (contents '(div-2 (emp-1 ((address B1) (salary 21))))))
+((get 'get-salary 'div-2) '(emp-1 ((address B1) (salary 21))))
+((lambda (record) (emp-salary record)) '(emp-1 ((address B1) (salary 21))))
+(emp-salary '(emp-1 ((address B1) (salary 21))))
+(cadr (cadr (cadr '(emp-1 ((address B1) (salary 21))))))
+(cadr (cadr '((address B1) (salary 21))))
+(cadr '(salary 21))
+21
+
+;; c
+(define (find-employee-record name divisions)
+  (let ((found (get-record (car divisions) name)))
+    (if found
+        found
+        (find-employee-record name (cdr divisions)))))
+
+;; d
+; 3rd division
+(define (package-for-division-3)
+  ...
+  ;; exported procedures
+  (define (tag x) (attach-tag 'div-3 x))
+  (put 'get-record 'div-3
+       (lambda (name)
+         (tag (find-record name records))))
+  (put 'get-salary 'div-3
+       (lambda (record)
+         (emp-salary record)))
+  'done)
+
+; The acquired division is provide a set of exported procedures that are required by the headquarters procedures to perform the dispatch.
+; No modifications are needed for the headquarter procedures, provided the acquired divison has set up the external interface properly.
+
+
+;; 75
+(define (apply-generic op arg) (arg op))
+
+(define (make-from-real-imag x y)
+  (define (dispatch op)
+    (cond ((eq? op 'real-part) x)
+          ((eq? op 'imag-part) y)
+          ((eq? op 'magnitude) (sqrt (+ (sq x) (sq y))))
+          ((eq? op 'angle) (atan y x))
+          (else (error "Unknown op -- MAKE-FROM-REAL-IMAG" op))))
+  dispatch)
+
+(define (make-from-mag-ang r a)
+  (define (dispatch op)
+    (cond ((eq? op 'real-part) (* r (cos a)))
+          ((eq? op 'imag-part) (* r (sin a)))
+          ((eq? op 'magnitude) r)
+          ((eq? op 'angle) a)
+          (else (error "Unknown op -- MAKE-FROM-MAG-ANG" op))))
+  dispatch)
