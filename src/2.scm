@@ -3146,17 +3146,387 @@ z
 #f
 
 
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags))
+                    (a1 (car args))
+                    (a2 (cadr args)))
+                (let ((t1->t2 (get-coercion type1 type2))
+                      (t2->t1 (get-coercion type2 type1)))
+                  (cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
+                        (t2->t1 (apply-generic op a1 (t2->t1 a2)))
+                        (else (error "No method for these types" (list op type-tags))))))
+              (error "No method for these types" (list op type-tags)))))))
+
+(define (scheme-number->complex n)
+  (make-complex-from-real-imag (contents n) 0))
+
+(put-coercion 'scheme-number 'complex scheme-number->complex)
+
+;; 81
+(define (scheme-number->scheme-number n) n)
+(define (complex->complex z) z)
+
+(put-coercion 'scheme-number 'scheme-number scheme-number->scheme-number)
+(put-coercion 'complex 'complex complex->complex)
+
+;; a
+(define (exp x y) (apply-generic 'exp x y))
+
+(define (install-scheme-number-package)
+  ...
+  (put 'exp '(scheme-number scheme-number)
+       (lambda (x y) (tag (expt x y))))
+  ...)
+
+(exp (make-complex-from-real-imag 1 2) (make-complex-from-real-imag 3 4))
+(exp (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))
+(apply-generic 'exp (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))
+
+; type-tags (map type-tag args)
+(map type-tag (list (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4)))))
+'(complex complex)
+; proc (get op type-tags)
+(get 'exp '(complex complex))
+#f
+; type1 (car type-tags)
+(car '(complex complex))
+'complex
+; type2 (cadr type-tags)
+(cadr '(complex complex))
+'complex
+; a1 (car args)
+(car (list (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4)))))
+(cons 'complex (cons 'rectangular (cons 1 2)))
+; a2 (cadr args)
+(cadr (list (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4)))))
+(cons 'complex (cons 'rectangular (cons 3 4)))
+; t1->t2 (get-coercion type1 type2)
+(get-coercion 'complex 'complex)
+complex->complex
+; t2->t1 (get-coercion type2 type1)
+(get-coercion 'complex 'complex)
+complex->complex
+
+(apply-generic 'exp (complex->complex (cons 'complex (cons 'rectangular (cons 1 2)))) (cons 'complex (cons 'rectangular (cons 3 4))))
+(apply-generic 'exp (cons 'complex (cons 'rectangular (cons 1 2))) (cons 'complex (cons 'rectangular (cons 3 4))))
+; ... and we are back to where we were.
+
+;; b
+; The apply-generic procedure performs the lookup against the coercion table iff the operations-and-types table does not incorporate the desired entry for the given arguments' types.
+; Given the identically typed arguments for which there is a trivial coercion defined (a coercion of a type to itself) in the coercion table, using the apply-generic procedure as is leaves us open to the possibility of an infinite recursion.
+; The apply-generic procedure should be modified to handle the case properly.
+
+; Note:
+; Given the identically typed arguments for which there is no appropriate entry in the operations-and-types table (that is, the package that corresponds to the type does not export the necessary procedure), it may make sense to ``raise'' both arguments' types, provided the appropriate coercion procedure is available for the types.
+; If the operations-and-types table lookup for the ``raised'' types fails and there are no more types to which we can ``raise'' our types further, then we give up.
+; This requires, however, the certain kind of a ``type hierarchy'' to be defined for the types.
+
+;; c
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags)))
+                (if (eq? type1 type2)
+                    (error "No method for these types" (list op type-tags)) ; don't try to coerce if both types are the same
+                    (let ((a1 (car args))
+                          (a2 (cadr args)))
+                      (let ((t1->t2 (get-coercion type1 type2))
+                            (t2->t1 (get-coercion type2 type1)))
+                        (cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
+                              (t2->t1 (apply-generic op a1 (t2->t1 a2)))
+                              (else (error "No method for these types" (list op type-tags))))))))
+              (error "No method for these types" (list op type-tags)))))))
 
 
+;; 82
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags)))
+                (let ((a1 (car args))
+                      (a2 (cadr args)))
+                  (let ((t1->t2 (get-coercion type1 type2))
+                        (t2->t1 (get-coercion type2 type1)))
+                    (cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
+                          (t2->t1 (apply-generic op a1 (t2->t1 a2)))
+                          (else (error "No method for these types" (list op type-tags)))))))
+      (error "No method for these types" (list op type-tags)))))))
+
+;; Coercion strategy:
+;; Attempt to coerce all the arguments to the type of the 1st argument
+;; Attempt to coerce all the arguments to the type of the 2nd argument
+;; ...
+(define (apply-generic-with-coercions op args types-to-try)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (null? types-to-try)
+              (error "No method for these types" (list op type-tags))
+              (let ((type-to-try (car types-to-try)))
+                (let ((coerced-args (map (lambda (arg)
+                                           (let ((type (type-tag arg)))
+                                             (let ((coerce-proc (get-coercion type type-to-try)))
+                                               (if coerce-proc
+                                                   (coerce-proc arg)
+                                                   arg))))
+                                         args)))
+                  (apply-generic-with-coercions op coerced-args (cdr types-to-try)))))))))
+
+(define (apply-generic op . args)
+  (apply-generic-with-coercions op args (map type-tag args)))
+
+(apply-generic 'add <scheme-number> <rational>)
+
+; #1
+(apply-generic-with-coercions 'add (list <scheme-number> <rational>) '(scheme-number rational))
+; ... assuming the procedure for adding scheme-number and rational number is not defined
+(null? types-to-try) ; => #f
+type-to-try ; => scheme-number
+; ... assuming the coercion procedure rational->scheme-number is not defined
+coerced-args ; => (list <scheme-number> <rational>)
+(apply-generic-with-coercions 'add (list <scheme-number> <rational>) '(rational))
+
+; #2
+(apply-generic-with-coercions 'add (list <scheme-number> <rational>) '(rational))
+; ... assuming the procedure for adding scheme-number and rational number is not defined
+(null? types-to-try) ; => #f
+type-to-try ; => rational
+; ... assuming the coercion procedure scheme-number->rational is not defined
+coerced-args ; => (list <scheme-number> <rational>)
+(apply-generic-with-coercions 'add (list <scheme-number> <rational>) '())
+
+; #3
+(apply-generic-with-coercions 'add (list <scheme-number> <rational>) '())
+; ... assuming the procedure for adding scheme-number and rational number is not defined
+(null? types-to-try) ; => #t
+(error ...) ; ~>
+
+(put 'scheme-number 'rational (lambda (x) ...))
+
+; #2 (alternative)
+(apply-generic-with-coercions 'add (list <scheme-number> <rational>) '(rational))
+; ... assuming the procedure for adding scheme-number and rational number is not defined
+(null? types-to-try) ; => #f
+type-to-try ; => rational
+; ... assuming the coercion procedure scheme-number->rational is defined
+coerced-args ; => (list <rational> <rational>)
+(apply-generic-with-coercions 'add (list <rational> <rational>) '())
+
+; #3
+(apply-generic-with-coercions 'add (list <rational> <rational>) '())
+; ... assuming the procedure for adding rational numbers is not defined
+(null? types-to-try) ; => #t
+(error ...) ; ~>
+
+; The solution lacks generality in that it may be possible to coerce all the arguments to the type that is not the type of any of the arguments supplied, but has the required operation defined.
+; The solution shall not try that approach.
 
 
+;; 83
+(define (install-complex-package)
+  ;; internal procedures
+  (define (make-complex x) x)
+  ...
+  ;; exported procedures
+  (define (tag this) (attach-tag 'complex this))
+  (put 'make 'complex
+       (lambda (x) (tag (make-complex x))))
+  ...)
+
+(define (install-real-package)
+  ;; imported procedures
+  (define (make-complex x) ((get 'make 'complex) x))
+  ;; internal procedures
+  (define (make-real x) x)
+  ...
+  ;; exported procedures
+  (define (tag this) (attach-tag 'real this))
+  (put 'make 'real
+       (lambda (x) (tag (make-real x))))
+  (put 'raise 'real
+       (lambda (x) (make-complex x)))
+  ...)
+
+(define (install-rational-package)
+  ;; imported procedures
+  (define (make-real x) ((get 'make 'real) x))
+  ;; internal procedures
+  (define (make-rational x) x)
+  ...
+  ;; exported procedures
+  (define (tag this) (attach-tag 'rational this))
+  (put 'make 'rational
+       (lambda (x) (tag (make-rational x))))
+  (put 'raise 'rational
+       (lambda (x) (make-real x)))
+  ...)
+
+(define (install-integer-package)
+  ;; imported procedures
+  (define (make-rational x) ((get 'make 'rational) x))
+  ;; internal procedures
+  (define (make-integer x) x)
+  ...
+  ;; exported procedures
+  (define (tag this) (attach-tag 'integer this))
+  (put 'make 'integer
+       (lambda (x) (tag (make-integer x))))
+  (put 'raise 'integer
+       (lambda (x) (make-rational x)))
+  ...)
+
+(define (raise x)
+  (let ((type (type-tag x)))
+    (let ((proc (get 'raise type)))
+      (if proc
+          (apply proc (list (contents x)))
+          (error "No method defined for type" type)))))
+
+(raise (cons 'integer 42))
+(apply (get 'raise 'integer) '(42))
+((get 'raise 'integer) 42)
+((lambda (x) (make-rational x)) 42)
+(make-rational 42)
+((get 'make 'rational) 42)
+((lambda (x) (tag (make-rational x))) 42)
+(tag (make-rational 42))
+(tag 42)
+(cons 'rational 42)
 
 
+;; 84
+(define (install-complex-package)
+  ...)
 
+(define (install-real-package)
+  ...
+  ;; exported procedures
+  (put 'supertype 'real 'complex)
+  ...)
 
+(define (install-rational-package)
+  ...
+  ;; exported procedures
+  (put 'supertype 'rational 'real)
+  ...)
 
+(define (install-integer-package)
+  ...
+  ;; exported procedures
+  (put 'supertype 'integer 'rational)
+  ...)
 
+(define (higher-type? t1 t2)
+  (let ((st2 (get 'supertype t2)))
+    (and st2
+         (or (eq? t1 st2)
+             (higher-type? t1 st2)))))
 
+(higher-type? 'integer 'real)
+(eq? 'integer 'complex) ; => #f
+(higher-type? 'integer 'complex)
+#f
 
+(higher-type? 'real 'integer)
+(eq? 'real 'rational) ; => #f
+(higher-type? 'real 'rational)
+(eq? 'real 'real) ; => #t
+#t
+
+(define (highest-type-2 t1 t2)
+  (cond ((higher-type? t1 t2) t1)
+        ((higher-type? t2 t1) t2)
+        (else (error "Types do not form a tower hierarchy structure" (list t1 t2)))))
+
+(define (highest-type types)
+  (cond ((null? types) #f)
+        ((= (length types) 1) (car types))
+        (else (highest-type-2 (car types)
+              (highest-type (cdr types))))))
+
+(highest-type '())
+#f
+
+(highest-type '(integer))
+'integer
+
+(highest-type '(integer rational))
+(highest-type-2 'integer
+                (highest-type '(rational)))
+(highest-type-2 'integer
+                'rational)
+'rational
+
+(highest-type '(integer rational real))
+(highest-type-2 'integer
+                (highest-type '(rational real)))
+(highest-type-2 'integer
+                (highest-type-2 'rational
+                                (highest-type '(real))))
+(highest-type-2 'integer
+                (highest-type-2 'rational
+                                'real))
+(highest-type-2 'integer
+                (highest-type-2 'rational
+                                'real))
+(highest-type-2 'integer
+                'real)
+'real
+
+(define (raise x)
+  (let ((type (type-tag x)))
+    (let ((proc (get 'raise type)))
+      (if proc
+          (apply proc (list (contents x)))
+          (error "No method defined for type" type)))))
+
+(define (raise-successively to-type x)
+  (if (eq? (type-tag x) to-type)
+      x
+      (raise-successively to-type (raise x))))
+
+(define (apply-generic-with-coercion to-type op args)
+  (if to-type
+      (let ((coerced-args (map (lambda (arg) (raise-successively to-type arg)) args)))
+        (let ((proc (get op (map type-tags coerced-args))))
+          (if proc
+              (apply proc (map contents coerced-args))
+              (error "No method for these types" (list op type-tags)))))
+      (error "No method defined for type" to-type)))
+
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (apply-generic-with-coercion (highest-type type-tags) op args)))))
+
+(apply-generic 'add (cons 'integer 0) (cons 'rational 1) (cons 'real 2))
+type-tags ; => (integer rational real)
+(highest-type type-tags) ; => real
+
+(apply-generic-with-coercion 'real 'add (list (cons 'integer 0) (cons 'rational 1) (cons 'real 2)))
+(apply 'add (list (raise-successively 'real (cons 'integer 0))
+                  (raise-successively 'real (cons 'rational 1))
+                  (raise-successively 'real (cons 'real 2))))
+(apply 'add (list (cons 'real 0)
+                  (cons 'real 1)
+                  (cons 'real 2)))
+(add (cons 'real 0) (cons 'real 1) (cons 'real 2))
 
 
